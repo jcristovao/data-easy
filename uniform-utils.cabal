@@ -1,0 +1,44 @@
+-- The name of the package.
+name:                uniform-utils
+version:             0.1.0.0
+synopsis:            Uniform set of utility functions for Maybe, Either, List and Booleans
+-- description:         
+homepage:            https://github.com/jcristovao/uniform-utils
+license:             BSD3
+license-file:        LICENSE
+author:              João Cristóvão
+maintainer:          jmacristovao@gmail.com
+category:            Data
+build-type:          Simple
+
+-- Extra files to be distributed with the package, such as examples or a README.
+-- extra-source-files:  
+
+-- Constraint on the version of Cabal needed to build this package.
+cabal-version:       >=1.18
+
+
+library
+  -- Modules exported by the library.
+  exposed-modules: Data.Maybe
+                   Data.Either
+                   Data.List
+                   Data.Tuple
+  
+  -- Modules included in this library but not exported.
+  -- other-modules:       
+  
+  -- Other library packages from which modules are imported.
+  build-depends   : base          >=4.6 && <4.7
+                  , transformers  >= 0.3
+                  , either        >= 3.4.1
+                  , safe          >= 0.3.3
+  
+  -- Directories containing source files.
+  hs-source-dirs:      src 
+  
+  -- Base language which the package is written in.
+  default-language:    Haskell2010
+
+  ghc-options     : -Wall
+  
