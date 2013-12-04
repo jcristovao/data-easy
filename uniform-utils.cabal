@@ -20,10 +20,7 @@ cabal-version:       >=1.18
 
 library
   -- Modules exported by the library.
-  exposed-modules: Data.Maybe
-                   Data.Either
-                   Data.List
-                   Data.Tuple
+  exposed-modules: Data.UniformUtils
   
   -- Modules included in this library but not exported.
   -- other-modules:       
@@ -31,8 +28,10 @@ library
   -- Other library packages from which modules are imported.
   build-depends   : base          >=4.6 && <4.7
                   , transformers  >= 0.3
-                  , either        >= 3.4.1
+                  , either        >= 4.0
                   , safe          >= 0.3.3
+                  -- this is for debug purposes only
+                  , text          >= 0.11.3
   
   -- Directories containing source files.
   hs-source-dirs:      src 

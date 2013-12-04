@@ -1,0 +1,8 @@
+:set -XOverloadedStrings
+:set -XMultiParamTypeClasses
+:set -XGeneralizedNewtypeDeriving 
+:set -XDeriveDataTypeable
+:set -XTemplateHaskell
+:set -XQuasiQuotes
+import Data.Text as T
+import Data.UniformUtils
