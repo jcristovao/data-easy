@@ -162,6 +162,12 @@ module Data.UniformUtils
   , ifToMaybe
   , boolCToMaybe
   , ifCToMaybe
+  , boolToEither
+  , boolCToEither
+  , boolToList
+  , boolToMonoid
+  , (?&&)
+  , (?$&&)
   , allCond
   , anyCond
   ) where
@@ -477,15 +483,16 @@ pairToMaybe = monoidToMaybe . snd
 pairToMaybe' :: (Eq a, Monoid a) => (a,b) -> Maybe a
 pairToMaybe' = monoidToMaybe . fst
 
--- | Transform an @'Maybe'@ value into a pair. This follows the same
+-- | Transform a @'Maybe'@ value into a pair. This follows the same
 -- convention as @'pairToMaybe'@, and thus transforms a @'Nothing'@
 -- into a @(def, 'mempty')@, and a @'Just' value@ into a @(def,value)@.
+--
 maybeToPair :: Monoid b => a -> Maybe b -> (a, b)
 maybeToPair def = maybe (def, mempty) (\jst -> (,) def jst)
 
 -- | Transform an @'Maybe'@ value into a pair. This follows the same
 -- convention as @'pairToMaybe''@, and thus transforms a @'Nothing' value@
--- into a @('mempty', def), and a @'Just' value@ into a @(value,def)@.
+-- into a @('mempty', def)@, and a @'Just' value@ into a @(value,def)@.
 maybeToPair' :: Monoid a => b -> Maybe a -> (a, b)
 maybeToPair' def = maybe (mempty,def) (\jst -> (,) jst def)
 
@@ -712,8 +719,9 @@ listToMonoid = headDef mempty
 monoidToList :: (Eq a, Monoid a) => a -> [a]
 monoidToList = monoid [] singleton
 
--- | Filter out all empty monoids from list
--- > catMonoid = filter isNotEmpty
+-- | Filter out all empty monoids from a list.
+--
+-- > catMonoids = filter isNotEmpty
 catMonoids :: (Eq a, Monoid a) => [a] -> [a]
 catMonoids = filter isNotEmpty
 
@@ -813,6 +821,77 @@ boolCToMaybe value f = if f value then Just value else Nothing
 -- | Same as boolCToMaybe, but with a more familiar 'if-like' syntax
 ifCToMaybe :: (a -> Bool) -> a -> Maybe a
 ifCToMaybe = flip boolCToMaybe
+
+-- | Provided two values, choose amongst them based on a 'Bool' value.
+--
+-- > \l r b = if b then Left l else Right r
+boolToEither :: a -> b -> Bool -> Either a b
+boolToEither l r b = if b then Left l else Right r
+
+-- | Provided two values, choose amongst them based on a the provided
+-- test on the second value.
+--
+-- > \l r f = if f r then Left l else Right r
+boolCToEither :: a -> b -> (b -> Bool) -> Either a b
+boolCToEither l r f = if f r then Left l else Right r
+
+-- | Insert the provided value into a list if the 'Bool' value is 'True',
+-- otherwise provide an empty list.
+boolToList :: a -> Bool -> [a]
+boolToList value b = fromBool [] b [value]
+
+-- | Keep the provided value if the 'Bool' value is 'True', 'mempty'
+-- otherwise.
+boolToMonoid :: (Monoid a) => a -> Bool -> a
+boolToMonoid value b = if b then value else mempty
+
+-- | Emulates @and@/@&&@ and @or@/@||@ from scripting languages like python,
+-- in the sense you can mix booleans with a value to get the value when
+-- the boolean is true (or 'mempty' otherwise).
+--
+-- However, in order to allow several @'?&&'@ in a row, the order
+-- is not the one normally used in languages like bash, where the test comes
+-- first.
+--
+-- /Usage/:
+--
+-- > value ?&& bool1 ?&& bool2 ?&& ...
+--
+-- /Note/: this is non-idiomatic haskell. Use at your own risk.
+-- You should instead use the following code :
+--
+-- > if bool1 && bool2 && ...  then value else mempty
+--
+-- Or better yet:
+--
+-- > if and [bool1,bool2,...] then value else mempty
+infixl 1 ?&&
+(?&&) :: (Monoid a) => a -> Bool -> a
+(?&&) = boolToMonoid
+
+-- | Emulates @and@,@&&@ and @or@,@||@ from scripting languages like python,
+-- in the sense you can mix boolean tests with a value to get the original
+-- value when all the tests return true (or 'mempty' otherwise).
+--
+-- However, in order to allow several @'??&&'@ in a row, the order
+-- is not the one normally used in languages like bash, where the test comes
+-- first.
+--
+-- /Usage/:
+--
+-- > value ?$&& condition1 ?$&& condition2 ?$&& ...
+--
+-- /Note/: this is non-idiomatic haskell. Use at your own risk.
+infixl 1 ?$&&
+(?$&&) :: (Monoid a) => a -> (a -> Bool) -> a
+(?$&&) value f = if f value then value else mempty
+
+-- ?||
+-- Just use: ?&& value (bool1 || bool2 || ... )
+--       or: ?&& value $ or [bool1,bool2,...]
+
+-- ?$||
+-- Just use: anyCond value [cond1, cond2,...]
 
 -- | Apply a list of boolean checks/tests to a variable, and return (True)
 -- if /all/ of them passed.
