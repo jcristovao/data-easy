@@ -23,13 +23,18 @@ module Data.UniformUtils
   , module Data.Either
   , module Data.Either.Combinators
   , module Data.Tuple
+  , module Data.Ord
+  , module Data.Function
   , module Safe
 
   -- * Additional functions
 
   -- ** Maybe
   -- | Since this module maps the "Data.Maybe" functions to other data types,
-  -- we just import (and re-export) this module, without adding anything more.
+  -- we mainly just import (and re-export) this module.
+  -- The extra functions are dedicated to conversions to other types.
+  , maybeToMonoid
+  , monoidToMaybe
 
   -- ** Either
   -- | Many of the functions are already defined in either "Data.Either" or
@@ -43,13 +48,15 @@ module Data.UniformUtils
   , eitherToMaybe
   , catEithers
   , mapEither
+  , eitherToMonoid
+  , monoidToEither
 
   -- ** List
   , list
   , isFilled
   , notNull
   , isNull
-  , fromNonEmptyList
+  , fromHeadNote
   , fromList
   , catLists
   , mapList
@@ -75,6 +82,14 @@ module Data.UniformUtils
   , pairToList
   , catPairs
   , mapPair
+  , pairToEither
+  , pairToEither'
+  , eitherToPair
+  , eitherToPair'
+  , pairToMaybe
+  , pairToMaybe'
+  , maybeToPair
+  , maybeToPair'
 
   -- ** Tuple Triples
   -- | Monoid class restriction will be used when applicable.
@@ -100,6 +115,14 @@ module Data.UniformUtils
   , tripleToList
   , catTriples
   , mapTriple
+  , toFstPairToTriple
+  , toSndPairToTriple
+  , toTrdPairToTriple
+  , pairToTriple
+  , dropFstTripleToPair
+  , dropSndTripleToPair
+  , dropTrdTripleToPair
+  , tripleToPair
 
   -- ** Monoid
   -- | The monoid version of the functions
@@ -118,7 +141,6 @@ module Data.UniformUtils
   , catMonoids
   , nonEmpty
   , mapMonoid
-  , maybeToMonoid
   , getFirst'
   , getLast'
 
@@ -130,6 +152,9 @@ module Data.UniformUtils
   -- Use the standard @if-then-else@ instead, its almost always clearer.
   -- /You have been warned./
   --
+  , fromBool
+  , fromBoolC
+  , catBools
   , (?)
   , (?$)
   , (?|)
@@ -145,10 +170,27 @@ import Data.Maybe
 import Data.Either
 import Data.Either.Combinators
 import Data.Tuple
+import Data.Ord
+import Data.Function
 import Data.Monoid
 import Safe
 import qualified Data.List as L
 import qualified Data.Set as Set
+
+------------------------------------------------------------------------------
+-- Maybe ---------------------------------------------------------------------
+------------------------------------------------------------------------------
+-- | Maybe to monoid conversion
+maybeToMonoid :: (Monoid a) => Maybe a -> a
+maybeToMonoid Nothing = mempty
+maybeToMonoid (Just x) = x
+
+-- | Convert a monoid value into a maybe value (Nothing if mempty).
+--
+-- > monoidToMaybe = monoid Nothing Just
+monoidToMaybe :: (Eq a, Monoid a) => a -> Maybe a
+monoidToMaybe = monoid Nothing Just
+
 
 ------------------------------------------------------------------------------
 -- Either --------------------------------------------------------------------
@@ -213,6 +255,18 @@ catEithers = rights
 mapEither :: (a -> Either b c) -> [a] -> [c]
 mapEither f = catEithers . map f
 
+-- | eitherToMonoid extract the right sided monoid into a single monoid
+-- value, or mempty in the case of a left value.
+--
+-- > eitherToMonoid = either mempty id
+eitherToMonoid :: (Monoid b) => Either a b -> b
+eitherToMonoid = either mempty id
+
+-- | monoidToEither extracts a non-empty value to the right side, or
+-- otherwise fills the 'Left' side with the provided value.
+monoidToEither :: (Eq b, Monoid b) => a -> b -> Either a b
+monoidToEither def = monoid (Left def) Right
+
 ------------------------------------------------------------------------------
 -- Lists ---------------------------------------------------------------------
 ------------------------------------------------------------------------------
@@ -237,8 +291,8 @@ isNull :: [a] -> Bool
 isNull = null
 
 -- | Alias for headNote
-fromNonEmptyList :: String -> [a] -> a
-fromNonEmptyList = headNote
+fromHeadNote :: String -> [a] -> a
+fromHeadNote = headNote
 
 -- | Returns the first value of a list if not empty, or the
 -- provided default value if the list is empty
@@ -383,6 +437,59 @@ catPairs = mapMonoid fromPair
 mapPair :: (Eq b, Monoid b) => (a -> b) -> [a] -> [b]
 mapPair = mapMonoid
 
+-- | Transform a pair into an either.
+-- We adopt the convention that the second value is the one of interest.
+-- It is matched against @'mempty'@, and if equal the first value is returned
+-- as a @'Left'@ value.
+pairToEither :: (Eq b, Monoid b) => (a,b) -> Either a b
+pairToEither (a,b) = if isEmpty b then Left a else Right b
+
+-- | Transform a pair into an either.
+-- The same as 'pairToEither', but the first tuple element is considered.
+pairToEither' :: (Eq a, Monoid a) => (a,b) -> Either b a
+pairToEither' (a,b) = if isEmpty a then Left b else Right a
+
+-- | Transform an @'Either'@ value into a pair. This follows the same
+-- convention as @'pairToEither'@, and thus transforms a @'Left' value@
+-- into a @('Left' value,'mempty')@, and a @'Right' value@ into a @(def, value)@.
+eitherToPair :: Monoid b => a -> Either a b -> (a, b)
+eitherToPair def = either (\lft -> (,) lft mempty) (\rgt -> (,) def rgt)
+
+-- | Transform an @'Either'@ value into a pair. This follows the same
+-- convention as @'pairToEither''@, and thus transforms a @'Left' value@
+-- into a @('mempty', 'Left' value)@, and a @'Right' value@ into a @(value, def)@.
+eitherToPair' :: Monoid a => b -> Either b a -> (a, b)
+eitherToPair' def = either (\lft -> (,) mempty lft) (\rgt -> (,) rgt def)
+
+-- | Transform a pair into an @'Maybe'@.
+-- We adopt the convention that the second value is the one of interest.
+-- It is matched against @'mempty'@, and if equal the first value is returned
+-- as a @'Just'@ value, or @'Nothing'@ otherwise.
+--
+-- > pairToMaybe = monoitToMaybe . snd
+pairToMaybe :: (Eq b, Monoid b) => (a,b) -> Maybe b
+pairToMaybe = monoidToMaybe . snd
+
+-- | Transform a pair into an @'Maybe'@.
+-- The same as 'pairToMaybe', but the first tuple element is considered.
+--
+-- > pairToMaybe' = monoitToMaybe . fst
+pairToMaybe' :: (Eq a, Monoid a) => (a,b) -> Maybe a
+pairToMaybe' = monoidToMaybe . fst
+
+-- | Transform an @'Maybe'@ value into a pair. This follows the same
+-- convention as @'pairToMaybe'@, and thus transforms a @'Nothing'@
+-- into a @(def, 'mempty')@, and a @'Just' value@ into a @(def,value)@.
+maybeToPair :: Monoid b => a -> Maybe b -> (a, b)
+maybeToPair def = maybe (def, mempty) (\jst -> (,) def jst)
+
+-- | Transform an @'Maybe'@ value into a pair. This follows the same
+-- convention as @'pairToMaybe''@, and thus transforms a @'Nothing' value@
+-- into a @('mempty', def), and a @'Just' value@ into a @(value,def)@.
+maybeToPair' :: Monoid a => b -> Maybe a -> (a, b)
+maybeToPair' def = maybe (mempty,def) (\jst -> (,) jst def)
+
+
 ------------------------------------------------------------------------------
 -- Tuple Triple --------------------------------------------------------------
 -- Monoid class restriction will be used when applicable ---------------------
@@ -497,6 +604,51 @@ catTriples = mapMonoid fromTriple
 mapTriple :: (Eq b, Monoid b) => (a -> b) -> [a] -> [b]
 mapTriple = mapMonoid
 
+-- | Pair to Triple, inserting the missing element in first place
+--
+-- > toFstPairToTriple x (y,z) = (x,y,z)
+toFstPairToTriple :: a -> (b, c) -> (a, b, c)
+toFstPairToTriple x (y, z) = (x, y, z)
+
+-- | Pair to Triple, inserting the missing element in second place
+--
+-- > toSndPairToTriple y (x, z) = (x, y, z)
+toSndPairToTriple :: b -> (a, c) -> (a, b, c)
+toSndPairToTriple y (x, z) = (x, y, z)
+
+-- | Pair to Triple, inserting the missing element in third place
+--
+-- > toTrdPairToTriple z (x, y) = (x, y, z)
+toTrdPairToTriple :: c -> (a, b) -> (a, b, c)
+toTrdPairToTriple z (x, y) = (x, y, z)
+
+-- | Alias for toTrdPairToTriple
+pairToTriple :: c -> (a, b) -> (a, b, c)
+pairToTriple = toTrdPairToTriple
+
+-- | Triple to pair, removing the first element.
+--
+-- > \(_,y,z) -> (y,z)
+dropFstTripleToPair :: (a,b,c) -> (b,c)
+dropFstTripleToPair (_,y,z) = (y,z)
+
+-- | Triple to pair, removing the second element.
+--
+-- > \(x,_,z) -> (x,z)
+dropSndTripleToPair :: (a,b,c) -> (a,c)
+dropSndTripleToPair (x,_,z) = (x,z)
+
+-- | Triple to pair, removing the third element.
+--
+-- > \(x,y,_) -> (x,y)
+dropTrdTripleToPair :: (a,b,c) -> (a,b)
+dropTrdTripleToPair (x,y,_) = (x,y)
+
+-- | Alias for 'dropTrdTripleToPair'.
+tripleToPair :: (a, b, c) -> (a, b)
+tripleToPair = dropTrdTripleToPair
+
+
 ------------------------------------------------------------------------------
 -- Monoid --------------------------------------------------------------------
 ------------------------------------------------------------------------------
@@ -580,11 +732,6 @@ mapMonoid f (x:xs) =
   let rs = mapMonoid f xs in
   if isEmpty (f x) then rs else f x:rs
 
--- | Maybe to monoid conversion
-maybeToMonoid :: (Monoid a) => Maybe a -> a
-maybeToMonoid Nothing = mempty
-maybeToMonoid (Just x) = x
-
 -- | Get the first non-empty element from a list. If all elements are 'mempty',
 -- or the list is empty, it returns 'mempty'.
 -- /Note/: A newtype based solution as done by maybe in "Data.Monoid" will
@@ -605,6 +752,21 @@ getLast' = foldr (\x a -> if isNotEmpty a then a else x) mempty
 ------------------------------------------------------------------------------
 -- Boolean -------------------------------------------------------------------
 ------------------------------------------------------------------------------
+
+-- | fromBool is a 'if' rewrite following the call convention of fromMaybe.
+fromBool :: a -> Bool -> a -> a
+fromBool def b value = if b then value else def
+
+-- | fromBoolC is similar to 'fromBool', but it takes a condition rather
+-- than a simple boolean value
+fromBoolC :: a -> (a -> Bool) -> a -> a
+fromBoolC def f value = if f value then value else def
+
+-- | Cat bools. Filter out False values from a list. Probably useless.
+--
+-- > catBools = filter id
+catBools :: [Bool] -> [Bool]
+catBools = filter id
 
 -- | Ternary operator. Use like this:
 --
