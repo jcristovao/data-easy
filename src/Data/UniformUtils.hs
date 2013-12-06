@@ -105,7 +105,9 @@ module Data.UniformUtils
   , isTrd'True
   , isTrd'False
   , fromFst'
+  , fst'
   , fromSnd'
+  , snd'
   , fromTrd'
   , trd'
   , fromTriple
@@ -165,6 +167,7 @@ module Data.UniformUtils
   , boolToEither
   , boolCToEither
   , boolToList
+  , boolCToList
   , boolToMonoid
   , (?&&)
   , (?$&&)
@@ -557,9 +560,17 @@ isTrd'False = not . isTrd'True
 fromFst' :: (a,b,c) -> a
 fromFst' (a,_,_) = a
 
+-- | Alias for fromFst' (extract the first element of a triple).
+fst' :: (a, b, c) -> a
+fst' = fromFst'
+
 -- | Extract the second element from a triple
 fromSnd' :: (a,b,c) -> b
 fromSnd' (_,a,_) = a
+
+-- | Alias for fromSnd' (extract the second element of a triple).
+snd' :: (a, b, c) -> b
+snd' = fromSnd'
 
 -- | Extract the third element from a triple
 fromTrd' :: (a,b,c) -> c
@@ -836,16 +847,22 @@ boolCToEither :: a -> b -> (b -> Bool) -> Either a b
 boolCToEither l r f = if f r then Left l else Right r
 
 -- | Insert the provided value into a list if the 'Bool' value is 'True',
--- otherwise provide an empty list.
+-- otherwise return an empty list.
 boolToList :: a -> Bool -> [a]
 boolToList value b = fromBool [] b [value]
+
+-- | Insert the provided value into a list if the provided condition is
+-- 'True', otherwise return an empty list.
+boolCToList :: a -> (a -> Bool) -> [a]
+boolCToList value f = if f value then [value] else []
+
 
 -- | Keep the provided value if the 'Bool' value is 'True', 'mempty'
 -- otherwise.
 boolToMonoid :: (Monoid a) => a -> Bool -> a
 boolToMonoid value b = if b then value else mempty
 
--- | Emulates @and@/@&&@ and @or@/@||@ from scripting languages like python,
+-- | Emulates @and@,@&&@ and @or@,@||@ from scripting languages like python,
 -- in the sense you can mix booleans with a value to get the value when
 -- the boolean is true (or 'mempty' otherwise).
 --
@@ -897,6 +914,8 @@ infixl 1 ?$&&
 -- if /all/ of them passed.
 --
 -- /Note/: See 'All' in "Data.Monoid" and 'all' in "Prelude" for reference.
+--
+-- /See/: <http://www.haskell.org/pipermail/haskell-cafe/2007-February/022694.html>
 allCond :: a -> [a -> Bool] -> Bool
 allCond _ [] = False
 allCond value lst = and . mapF value $ lst
@@ -905,6 +924,8 @@ allCond value lst = and . mapF value $ lst
 -- if /any/ of them passed.
 --
 -- /Note/: See 'Any' in "Data.Monoid" and 'any' in "Prelude" for reference.
+--
+-- /See/: <http://www.haskell.org/pipermail/haskell-cafe/2007-February/022694.html>
 anyCond :: a -> [a -> Bool] -> Bool
 anyCond _ [] = False
 anyCond value lst = or . mapF value $ lst
