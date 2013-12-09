@@ -21,6 +21,7 @@ cabal-version:       >=1.18
 library
   -- Modules exported by the library.
   exposed-modules: Data.UniformUtils
+                   Control.Monad.Trans.Convert
   
   -- Modules included in this library but not exported.
   -- other-modules:       
@@ -34,6 +35,7 @@ library
                   --, errors        >= 1.4.4
                   -- this is for debug purposes only
                   --, text          >= 0.11.3
+                  , directory    >= 1.2.0.1
   
   -- Directories containing source files.
   hs-source-dirs:      src 

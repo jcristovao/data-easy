@@ -66,15 +66,18 @@ module Data.UniformUtils
   , nubSort'
 
   -- ** Tuple Pairs
-  -- | Monoid class restriction will be used when applicable.
-  , pair
+  -- | Monoid class restriction will be used in tuple elements whenever
+  -- necessary to create the concept of \'valid\' value.
+  --
+  -- /Note/: if you need real heterogeneous lists, see the "HList" package.
+  -- <http://hackage.haskell.org/package/HList>
+   , pair
   , pairS
-  , isFstTrue
-  , isFstFalse
-  , isSndTrue
-  , isSndFalse
+  , isPairNotEmpty
+  , isPairEmpty
   , fromFst
   , fromSnd
+  , fromPairNote
   , fromPair
   , listToPairNote
   , listToPairs
@@ -84,32 +87,40 @@ module Data.UniformUtils
   , mapPair
   , pairToEither
   , pairToEither'
+  , pairBothToEither
   , eitherToPair
   , eitherToPair'
   , pairToMaybe
   , pairToMaybe'
+  , pairFstToMaybe
+  , pairSndToMaybe
   , maybeToPair
   , maybeToPair'
+  , pairToMonoid
+  , pairToMonoid'
 
   -- ** Tuple Triples
-  -- | Monoid class restriction will be used when applicable.
-  -- /Note/: uses ' to distinguish from tuple pairs. This clearly doesn't scale.
-  -- But if you intent to use bigger tuples, you probably should be using a better
+  -- | Monoid class restriction will be used in tuple elements whenever
+  -- necessary to create the concept of \'valid\' value.
+  --
+  -- /Note/: if you need real heterogeneous lists, see the "HList" package.
+  -- <http://hackage.haskell.org/package/HList>
+  --
+  -- /Note/: we use the postfix ' to distinguish from tuple pairs.
+  -- This clearly doesn't scale to bigger tuples.
+  -- If you need those, you probably should be using a better
   -- library than this, no? See <http://hackage.haskell.org/package/lens>.
   , triple
   , tripleS
-  , isFst'True
-  , isFst'False
-  , isSnd'True
-  , isSnd'False
-  , isTrd'True
-  , isTrd'False
+  , isTripleNotEmpty
+  , isTripleEmpty
   , fromFst'
   , fst'
   , fromSnd'
   , snd'
   , fromTrd'
   , trd'
+  , fromTripleNote
   , fromTriple
   , listToTripleNote
   , listToTriples
@@ -125,6 +136,10 @@ module Data.UniformUtils
   , dropSndTripleToPair
   , dropTrdTripleToPair
   , tripleToPair
+  , tripleToMaybe
+  , tripleToMaybe'
+  , tripleToMonoid
+  , tripleToMonoid'
 
   -- ** Monoid
   -- | The monoid version of the functions
@@ -370,34 +385,15 @@ pair f g (a,b) = f a `mappend` g b
 pairS :: (Monoid b) => (a -> b) -> (a,a) -> b
 pairS f (a,b) = f a `mappend` f b
 
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'
+-- | Is the pair tuple \'valid\', i.e., does it have at least one
+-- non-empty (monoid) value?
+isPairNotEmpty :: (Eq a, Monoid a, Eq b, Monoid b) => (a, b) -> Bool
+isPairNotEmpty (x,y) = isNotEmpty x || isNotEmpty y
 --
--- > isFstTrue = fst
-isFstTrue :: (Bool, a) -> Bool
-isFstTrue = fst
-
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'
---
--- > isFstFalse = not . fst
-isFstFalse :: (Bool, a) -> Bool
-isFstFalse = not . fst
-
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'
---
--- > isSndTrue = fst
-isSndTrue :: (a, Bool) -> Bool
-isSndTrue = snd
-
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'
---
--- > isSndFalse = not . fst
-isSndFalse :: (a, Bool) -> Bool
-isSndFalse = not . snd
-
+-- | Is the pair tuple \'invalid\', i.e., are both (monoid) elements
+-- 'mempty'?
+isPairEmpty :: (Eq a, Monoid a, Eq b, Monoid b) => (a, b) -> Bool
+isPairEmpty (x,y) = isEmpty x && isEmpty y
 
 -- | Longer (??) alias for 'fst'.
 fromFst :: (a,b) -> a
@@ -408,8 +404,12 @@ fromSnd :: (a,b) -> b
 fromSnd = snd
 
 -- | 'mappend' the two monoid elements of a pair
-fromPair :: (Monoid a) => (a,a) -> a
-fromPair (a,b) = a `mappend` b
+fromPairNote :: (Eq a, Monoid a) => String -> (a,a) -> a
+fromPairNote err (a,b) = fromMonoid (error err) (a `mappend` b)
+
+-- | 'mappend' the two monoid elements of a pair
+fromPair :: (Eq a, Monoid a) => a -> (a,a) -> a
+fromPair def (a,b) = fromMonoid def (a `mappend` b)
 
 -- | listToPair grabs the two first elements of a list, and inserts them
 -- into a tuple. If not enough elements are available, raise the provided
@@ -438,7 +438,7 @@ pairToList (a,b) = [a,b]
 -- | 'mappend' each pair in a list into a single value, and filter out
 -- 'mempty' values
 catPairs :: (Eq a, Monoid a) => [(a,a)] -> [a]
-catPairs = mapMonoid fromPair
+catPairs = mapMonoid (fromPair mempty)
 
 -- | Apply the provided function to each pair, and keep only the non-empty
 -- monoids
@@ -458,47 +458,92 @@ pairToEither (a,b) = if isEmpty b then Left a else Right b
 pairToEither' :: (Eq a, Monoid a) => (a,b) -> Either b a
 pairToEither' (a,b) = if isEmpty a then Left b else Right a
 
+-- | Transform a pair into an either.
+-- Both values are checked for a valid monoid (non-empty).
+-- The first to be found is returned as a Right value.
+-- If none is found, a default value is returned.
+pairBothToEither :: (Eq a, Monoid a) => b -> (a,a) -> Either b a
+pairBothToEither def (a,b) = monoid (monoid (Left def) Right b) Right a
+
+
 -- | Transform an @'Either'@ value into a pair. This follows the same
 -- convention as @'pairToEither'@, and thus transforms a @'Left' value@
 -- into a @('Left' value,'mempty')@, and a @'Right' value@ into a @(def, value)@.
 eitherToPair :: Monoid b => a -> Either a b -> (a, b)
-eitherToPair def = either (\lft -> (,) lft mempty) (\rgt -> (,) def rgt)
+eitherToPair def = either (\lft -> (,) lft mempty) ((,) def)
 
 -- | Transform an @'Either'@ value into a pair. This follows the same
 -- convention as @'pairToEither''@, and thus transforms a @'Left' value@
 -- into a @('mempty', 'Left' value)@, and a @'Right' value@ into a @(value, def)@.
 eitherToPair' :: Monoid a => b -> Either b a -> (a, b)
-eitherToPair' def = either (\lft -> (,) mempty lft) (\rgt -> (,) rgt def)
+eitherToPair' def = either ((,) mempty) (\rgt -> (,) rgt def)
 
--- | Transform a pair into an @'Maybe'@.
--- We adopt the convention that the second value is the one of interest.
--- It is matched against @'mempty'@, and if equal the first value is returned
--- as a @'Just'@ value, or @'Nothing'@ otherwise.
+-- | Transform a pair onto a @'Maybe'@
+-- If both the values are non-empty, the first one is returned wrapped in
+-- a Just. If just one value is not-empty, that value is returned,
+-- irrespectively if it is the first or second.
+-- Otherwise, this function returns Nothing.
 --
--- > pairToMaybe = monoitToMaybe . snd
-pairToMaybe :: (Eq b, Monoid b) => (a,b) -> Maybe b
-pairToMaybe = monoidToMaybe . snd
+-- /Note/: the reciprocal of this function is @'pairToMaybe''@.
+--
+-- > pairToMaybe = monoid (monoid Nothing Just b) Just a
+pairToMaybe :: (Eq a, Monoid a) => (a,a) -> Maybe a
+pairToMaybe (a,b) = monoid (monoid Nothing Just b) Just a
 
--- | Transform a pair into an @'Maybe'@.
--- The same as 'pairToMaybe', but the first tuple element is considered.
+-- | Transform a pair onto a @'Maybe'@
+-- If both the values are non-empty, the second one is returned wrapped in
+-- a Just. If just one value is not-empty, that value is returned,
+-- irrespectively if it is the first or second.
+-- Otherwise, this function returns Nothing.
+--
+-- /Note/: the reciprocal of this function is @'pairToMaybe'@.
+--
+-- > pairToMaybe = monoid (monoid Nothing Just b) Just a
+pairToMaybe' :: (Eq a, Monoid a) => (a,a) -> Maybe a
+pairToMaybe' (a,b) = monoid (monoid Nothing Just a) Just b
+
+
+-- | Transform the first element of a pair (if it is a monoid) into an @'Maybe'@.
+-- Reciprocal to @'pairSndToMaybe'@.
 --
 -- > pairToMaybe' = monoitToMaybe . fst
-pairToMaybe' :: (Eq a, Monoid a) => (a,b) -> Maybe a
-pairToMaybe' = monoidToMaybe . fst
+pairFstToMaybe :: (Eq a, Monoid a) => (a,b) -> Maybe a
+pairFstToMaybe = monoidToMaybe . fst
+
+
+-- | Transform the second element of a pair (if it is a monoid) into a @'Maybe'@.
+-- Reciprocal to @'pairFstToMaybe'@.
+--
+-- > pairToMaybe = monoitToMaybe . snd
+pairSndToMaybe :: (Eq b, Monoid b) => (a,b) -> Maybe b
+pairSndToMaybe = monoidToMaybe . snd
+
 
 -- | Transform a @'Maybe'@ value into a pair. This follows the same
 -- convention as @'pairToMaybe'@, and thus transforms a @'Nothing'@
--- into a @(def, 'mempty')@, and a @'Just' value@ into a @(def,value)@.
---
-maybeToPair :: Monoid b => a -> Maybe b -> (a, b)
-maybeToPair def = maybe (def, mempty) (\jst -> (,) def jst)
-
--- | Transform an @'Maybe'@ value into a pair. This follows the same
--- convention as @'pairToMaybe''@, and thus transforms a @'Nothing' value@
 -- into a @('mempty', def)@, and a @'Just' value@ into a @(value,def)@.
-maybeToPair' :: Monoid a => b -> Maybe a -> (a, b)
-maybeToPair' def = maybe (mempty,def) (\jst -> (,) jst def)
+--
+maybeToPair :: Monoid a => b -> Maybe a -> (a, b)
+maybeToPair def = maybe (mempty,def) (\jst -> (,) jst def)
 
+-- | Transform a @'Maybe'@ value into a pair. This follows the same
+-- convention as @'pairToMaybe''@, and thus transforms a @'Nothing'@
+-- into a @(def, 'mempty')@, and a @'Just' value@ into a @(def, value)@.
+--
+maybeToPair' :: Monoid b => a -> Maybe b -> (a, b)
+maybeToPair' def = maybe (def,mempty) ((,) def)
+
+-- | Finds the first non-empty monoid in a pair, and returns it.
+-- If none found, returns @'mempty'@.
+--
+-- /Note/: reciprocal to @'pairToMonoid''@
+pairToMonoid :: (Eq a, Monoid a) => (a,a) -> a
+pairToMonoid (a,b) = fromMonoid (fromMonoid mempty b) a
+
+-- | Finds the last non-empty monoid in a pair, and returns it.
+-- If none found, returns @'mempty'@.
+pairToMonoid' :: (Eq a, Monoid a) => (a,a) -> a
+pairToMonoid' (a,b) = fromMonoid (fromMonoid mempty a) b
 
 ------------------------------------------------------------------------------
 -- Tuple Triple --------------------------------------------------------------
@@ -513,48 +558,23 @@ triple f g h (a,b,c) = mconcat [f a, g b, h c]
 tripleS :: (Monoid b) => (a -> b) -> (a,a,a) -> b
 tripleS f (a,b,c) = mconcat [f a, f b, f c]
 
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'.
+-- | Is the triple tuple \'valid\', i.e., does it have at least one
+-- non-empty (monoid) value?
+isTripleNotEmpty
+  :: (Eq a, Monoid a, Eq b, Monoid b, Eq c, Monoid c)
+  => (a, b, c)
+  -> Bool
+isTripleNotEmpty (x,y,z)
+  = isNotEmpty x || isNotEmpty y || isNotEmpty z
 --
--- > isFst'True (a,_,_) = a
-isFst'True :: (Bool,a, a) -> Bool
-isFst'True (a,_,_) = a
-
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'
---
--- > isFst'False = not . isFst'True
-isFst'False :: (Bool, a, a) -> Bool
-isFst'False = not . isFst'True
-
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'
---
--- > isSnd'True (_,a,_) -> a
-isSnd'True :: (a, Bool, a) -> Bool
-isSnd'True (_,a,_) = a
-
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'
---
--- > isSnd'False = not . isSnd'True
-isSnd'False :: (a, Bool, a) -> Bool
-isSnd'False = not . isSnd'True
-
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'
---
--- > isTrd'True (_,_,a) -> a
-isTrd'True :: (a, a, Bool) -> Bool
-isTrd'True (_,_,a) = a
-
--- | Very stupid function. It does not make sense.
--- You should not be using tuples for this. See 'Maybe' and/or 'Either'
---
--- > isTrd'False = not . isSnd'True
-isTrd'False :: (a, a, Bool) -> Bool
-isTrd'False = not . isTrd'True
-
+-- | Is the pair tuple \'invalid\', i.e., are both (monoid) elements
+-- 'mempty'?
+isTripleEmpty
+  :: (Eq a, Monoid a, Eq b, Monoid b, Eq c, Monoid c)
+  => (a, b, c)
+  -> Bool
+isTripleEmpty (x,y,z)
+  = isEmpty x && isEmpty y && isEmpty z
 
 -- | Extract the first element from a triple
 fromFst' :: (a,b,c) -> a
@@ -580,9 +600,14 @@ fromTrd' (_,_,a) = a
 trd' :: (a,b,c) -> c
 trd' = fromTrd'
 
+-- | 'mappend' the two monoid elements of a pair
+fromTripleNote :: (Eq a, Monoid a) => String -> (a,a,a) -> a
+fromTripleNote err (a,b,c) = fromMonoid (error err)
+                                        (a `mappend` b `mappend` c)
+
 -- | 'mappend' the three monoid elements of a triple
-fromTriple :: (Monoid a) => (a,a,a) -> a
-fromTriple (a,b,c) = mconcat [a,b,c]
+fromTriple :: (Eq a, Monoid a) => a -> (a,a,a) -> a
+fromTriple def (a,b,c) = fromMonoid def (mconcat [a,b,c])
 
 -- | listToTriple grabs the two three elements of a list, and inserts them
 -- into a triple tuple. If not enough elements are available, raise the
@@ -614,7 +639,8 @@ tripleToList (a,b,c) = [a,b,c]
 -- | 'mappend' each triple in a list into a single value, and filter out
 -- 'mempty' values
 catTriples :: (Eq a, Monoid a) => [(a,a,a)] -> [a]
-catTriples = mapMonoid fromTriple
+catTriples = mapMonoid (fromTriple mempty)
+-- TODO
 
 -- | Apply the provided function to each triple, and keep only the non-empty
 -- monoids.
@@ -665,6 +691,30 @@ dropTrdTripleToPair (x,y,_) = (x,y)
 -- | Alias for 'dropTrdTripleToPair'.
 tripleToPair :: (a, b, c) -> (a, b)
 tripleToPair = dropTrdTripleToPair
+
+-- | Triple to Maybe. Analogous to @'pairToMaybe'@, it keeps the first
+-- non-empty monoid value.
+tripleToMaybe :: (Eq a, Monoid a) => (a,a,a) -> Maybe a
+tripleToMaybe (a,b,c)
+  = monoid (monoid (monoid Nothing Just c) Just b) Just a
+
+-- | Triple to Maybe. Analogous to @'pairToMaybe''@, it keeps the last
+-- non-empty monoid value.
+tripleToMaybe' :: (Eq a, Monoid a) => (a,a,a) -> Maybe a
+tripleToMaybe' (a,b,c)
+  = monoid (monoid (monoid Nothing Just a) Just b) Just c
+
+-- | Triple to Monoid. Analogous to @'pairToMonoid'@, it keeps the first
+-- non-empty monoid value.
+tripleToMonoid :: (Eq a, Monoid a) => (a,a,a) -> a
+tripleToMonoid (a,b,c)
+  = fromMonoid (fromMonoid (fromMonoid mempty c) b) a
+
+-- | Triple to Maybe. Analogous to @'pairToMonoid''@, it keeps the last
+-- non-empty monoid value.
+tripleToMonoid' :: (Eq a, Monoid a) => (a,a,a) -> a
+tripleToMonoid' (a,b,c)
+  = fromMonoid (fromMonoid (fromMonoid mempty a) b) c
 
 
 ------------------------------------------------------------------------------
