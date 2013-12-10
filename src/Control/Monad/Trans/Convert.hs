@@ -44,6 +44,9 @@ module Control.Monad.Trans.Convert
   , mBoolToEitherT
   , mBToET
 
+  , tryIoMonoidToMaybeT
+  , tryIoMonoidToEitherT
+
 
   ) where
 
@@ -56,6 +59,8 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Either
 
+import Control.Exception
+import System.IO.Error
 
 ------------------------------------------------------------------------------
 -- Maybe ---------------------------------------------------------------------
@@ -65,6 +70,14 @@ import Control.Monad.Trans.Either
 -- Shamelessly copied from "Control.Error.Util"
 hoistMaybe :: (Monad m) => Maybe b -> MaybeT m b
 hoistMaybe = MaybeT . return
+
+-- | Analogous to 'Just' and equivalent to 'return'
+just :: (Monad m) => a -> MaybeT m a
+just a = MaybeT (return (Just a))
+
+-- | Analogous to 'Nothing' and equivalent to 'mzero'
+nothing :: (Monad m) => MaybeT m a
+nothing = MaybeT (return Nothing)
 
 -- | Transform a maybe value encapsulated in a @Monad m@ into the equivalent
 -- MaybeT m monad transformer.
@@ -256,4 +269,31 @@ mBToET
   -> EitherT b m a
 mBToET = mBoolToEitherT
 
+{-eIoTry :: IO a -> IO (Either IOException a)-}
+{-eIoTry = try-}
 
+-- /Note/: Since try is restricted to IO, this function is also restricted to
+-- monad tranformers where the last monad is IO.
+tryIoMonoidToMaybeT
+  :: (Eq a, Monoid a)
+  => IO a
+  -> MaybeT IO a
+tryIoMonoidToMaybeT ioF = do
+  res <- lift $ tryIOError ioF
+  case res of
+    Left _  -> nothing
+    Right a -> hoistMaybe $ monoidToMaybe a
+
+tryIoMonoidToEitherT
+  :: (Eq a, Monoid a)
+  => IO a
+  -> EitherT IOException IO a
+tryIoMonoidToEitherT ioF = do
+  res <- lift $ tryIOError ioF
+  case res of
+    Left e  -> left e
+    Right a -> hoistEither $ monoidToEither (userError "empty monoid") a
+
+-- mTryMonoidToMaybeT
+-- mTryMonoidToEitherT
+--
