@@ -48,6 +48,8 @@ module Control.Monad.Trans.Convert
   , tryIoMonoidToEitherT
   , tryIoET
   , tryIoET'
+  , fmapLeftT
+  , fmapRightT
 
 
   ) where
@@ -57,6 +59,7 @@ import Data.Monoid
 
 import Control.Applicative
 
+import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Either
@@ -280,11 +283,13 @@ tryIoMonoidToMaybeT
   :: (Eq a, Monoid a)
   => IO a
   -> MaybeT IO a
-tryIoMonoidToMaybeT ioF = do
-  res <- lift $ tryIOError ioF
-  case res of
-    Left _  -> nothing
-    Right a -> hoistMaybe $ monoidToMaybe a
+tryIoMonoidToMaybeT ioF =   join . fmap monoidToMaybe . eitherToMaybe
+                        <$> (lift . tryIOError) ioF
+                        >>= hoistMaybe
+  {-res <- lift $ tryIOError ioF-}
+  {-case res of-}
+    {-Left _  -> nothing-}
+    {-Right a -> hoistMaybe $ monoidToMaybe a-}
 
 -- This function executes a IO action that returns a monoid value, or raises
 -- a @'IOException'@. If a @'IOException'@ is raised, or the return value
@@ -326,19 +331,25 @@ tryIoET ioF = (lift . tryIOError) ioF >>= hoistEither
 
 -- | Change the left type using the provided conversion function.
 -- This is a specialization of @'Control.Monad.Trans.Either.bimapEitherT'@.
-mapLeftT
+--
+-- > fmapLeftT f = bimapEitherT f id
+--
+-- or using the "errors" "Data.EitherR"
+--
+-- > fmapLeftT = fmapLT
+fmapLeftT
   :: Functor m
   => (a -> c)
   -> EitherT a m b
   -> EitherT c m b
-mapLeftT f = bimapEitherT f id
+fmapLeftT f = bimapEitherT f id
 
 -- | Change the right type using the provided conversion function.
 -- This is a specialization of @'Control.Monad.Trans.Either.bimapEitherT'@.
 --
-mapRightT
+fmapRightT
   :: Functor m
   => (b -> c)
   -> EitherT a m b
   -> EitherT a m c
-mapRightT = bimapEitherT id
+fmapRightT = bimapEitherT id
