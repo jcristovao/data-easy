@@ -46,6 +46,8 @@ module Control.Monad.Trans.Convert
 
   , tryIoMonoidToMaybeT
   , tryIoMonoidToEitherT
+  , tryIoET
+  , tryIoET'
 
 
   ) where
@@ -284,16 +286,59 @@ tryIoMonoidToMaybeT ioF = do
     Left _  -> nothing
     Right a -> hoistMaybe $ monoidToMaybe a
 
+-- This function executes a IO action that returns a monoid value, or raises
+-- a @'IOException'@. If a @'IOException'@ is raised, or the return value
+-- is an empty monoid, the function returns a left value in the
+-- @EitherT IOException IO@ monad transformer. In the later case (empty monoid),
+-- the exception will be of @'userErrorType'@ type, with the default string
+-- \"empty monoid\". If you wish to specify your own message, see @'tryIoET''@.
+--
+-- /Note/: if a different type of exception is raised (@/= IOEXCEPTION@),
+-- then that exception is re-thrown.
 tryIoMonoidToEitherT
   :: (Eq a, Monoid a)
   => IO a
   -> EitherT IOException IO a
-tryIoMonoidToEitherT ioF = do
-  res <- lift $ tryIOError ioF
-  case res of
-    Left e  -> left e
-    Right a -> hoistEither $ monoidToEither (userError "empty monoid") a
+tryIoMonoidToEitherT ioF
+  =   joinEitherMonoid (userError "empty monoid") <$> (lift . tryIOError) ioF
+  >>= hoistEither
 
--- mTryMonoidToMaybeT
--- mTryMonoidToEitherT
+-- | This function executes a IO action that returns a monoid value, or raises
+-- an @'IOException'@. If a @'IOException'@ is raised, or the returned value
+-- is an empty monoid, the function returns a left value in the
+-- @EitherT IOException IO@ monad transformer. In the later case (empty monoid),
+-- the exception will be of @'userErrorType'@ type, with the provided string
+-- text.
+tryIoET'
+  :: (Eq a, Monoid a)
+  => String
+  -> IO a
+  -> EitherT IOException IO a
+tryIoET' err ioF
+  =   joinEitherMonoid (userError err) <$> (lift . tryIOError) ioF
+  >>= hoistEither
+
+-- | This function executes a IO action that could raise an @'IOException'@.
+-- If a @'IOException'@ is raised, the function returns a left value in the
+-- @EitherT IOException IO@ monad transformer.
+tryIoET :: IO a -> EitherT IOException IO a
+tryIoET ioF = (lift . tryIOError) ioF >>= hoistEither
+
+-- | Change the left type using the provided conversion function.
+-- This is a specialization of @'Control.Monad.Trans.Either.bimapEitherT'@.
+mapLeftT
+  :: Functor m
+  => (a -> c)
+  -> EitherT a m b
+  -> EitherT c m b
+mapLeftT f = bimapEitherT f id
+
+-- | Change the right type using the provided conversion function.
+-- This is a specialization of @'Control.Monad.Trans.Either.bimapEitherT'@.
 --
+mapRightT
+  :: Functor m
+  => (b -> c)
+  -> EitherT a m b
+  -> EitherT a m c
+mapRightT = bimapEitherT id

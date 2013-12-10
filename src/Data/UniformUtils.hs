@@ -50,6 +50,7 @@ module Data.UniformUtils
   , mapEither
   , eitherToMonoid
   , monoidToEither
+  , joinEitherMonoid
 
   -- ** List
   , list
@@ -290,6 +291,12 @@ eitherToMonoid = either mempty id
 -- otherwise fills the 'Left' side with the provided value.
 monoidToEither :: (Eq b, Monoid b) => a -> b -> Either a b
 monoidToEither def = monoid (Left def) Right
+
+-- | Case analysis for a either monoid. If the right side of the monoid
+-- is @'mempty'@, then the value is transformed to a left value, using
+-- the provided function.
+joinEitherMonoid :: (Eq b, Monoid b) => a -> Either a b -> Either a b
+joinEitherMonoid emptErr = either Left (monoidToEither emptErr)
 
 ------------------------------------------------------------------------------
 -- Lists ---------------------------------------------------------------------
