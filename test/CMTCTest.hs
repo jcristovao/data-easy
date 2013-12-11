@@ -44,7 +44,7 @@ specs = do
   let noInvalidChars k = '\NUL' `notElem` k
                       && '=' `notElem` k
                       && "C" /= k
-  describe "tryIoMonoidToMaybeT" $ do
+  describe "tryIOMonoidToMaybeT" $ do
     it "Matches an equivalent implementation"
       . property . monadicIO $ do
           k <- pick arbitrary
@@ -52,7 +52,7 @@ specs = do
           v <- pick arbitrary
           pre $ noInvalidChars v
           run $ setEnv k v True
-          tst <- run $ runMaybeT (tryIoMonoidToMaybeT (getEnv k))
+          tst <- run $ runMaybeT (tryIOMonoidToMaybeT (getEnv k))
           eqv <- run . runMaybeT  $  join . fmap monoidToMaybe . eitherToMaybe
                            <$> (lift . tryIOError) (getEnv k)
                            >>= hoistMaybe
@@ -60,10 +60,10 @@ specs = do
 
     it "Handles Exceptions" . property $
       \k -> (not . null $ k) && noInvalidChars k ==> do
-        runMaybeT (tryIoMonoidToMaybeT (getEnv k))
+        runMaybeT (tryIOMonoidToMaybeT (getEnv k))
         `shouldReturn` Nothing
 
-  describe "tryIoMonoidToEitherT" $ do
+  describe "tryIOMonoidToEitherT" $ do
     it "Matches an equivalent implementation"
       . property . monadicIO $ do
           k <- pick arbitrary
@@ -71,7 +71,7 @@ specs = do
           v <- pick arbitrary
           pre $ noInvalidChars v
           run $ setEnv k v True
-          tst <- run $ runEitherT (tryIoMonoidToEitherT (getEnv k))
+          tst <- run $ runEitherT (tryIOMonoidToEitherT (getEnv k))
           eqv <- run . runEitherT $ do
                   res <- lift . tryIOError $ getEnv k
                   case res of
@@ -82,14 +82,14 @@ specs = do
 
     it "Handles Exceptions" . property $
       \k -> (not . null $ k) && noInvalidChars k ==> do
-        res <- runEitherT (tryIoMonoidToEitherT (getEnv k))
+        res <- runEitherT (tryIOMonoidToEitherT (getEnv k))
         return $ case res of
           Left (e:: IOException) -> isDoesNotExistError e
           _                -> False
         `shouldReturn` True
 
 
-  describe "tryIoET'" $ do
+  describe "tryIOET'" $ do
     it "Matches an equivalent implementation"
       . property . monadicIO $ do
           k <- pick arbitrary
@@ -98,7 +98,7 @@ specs = do
           pre $ noInvalidChars v
           exceptStr <- pick arbitrary
           run $ setEnv k v True
-          tst <- run $ runEitherT (tryIoET' exceptStr (getEnv k))
+          tst <- run $ runEitherT (tryIOET' exceptStr (getEnv k))
           eqv <- run . runEitherT $ do
                   res <- lift . tryIOError $ getEnv k
                   case res of
@@ -109,7 +109,7 @@ specs = do
 
     it "Handles Exceptions" . property $
       \k -> (not . null $ k) && noInvalidChars k ==> do
-        res <- runEitherT (tryIoET (getEnv k))
+        res <- runEitherT (tryIOET (getEnv k))
         return $ case res of
           Left (e:: IOException) -> isDoesNotExistError e
           _                -> False

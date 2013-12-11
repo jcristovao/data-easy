@@ -23,6 +23,9 @@ module Control.Monad.Trans.Convert
   , mBoolToMaybeT
   , mBToMT
 
+  , tryIOMonoidToMaybeT
+  , tryIOMT
+
   -- ** toEitherT
   , mMaybeToEitherT
   , mMToET
@@ -44,12 +47,12 @@ module Control.Monad.Trans.Convert
   , mBoolToEitherT
   , mBToET
 
-  , tryIoMonoidToMaybeT
-  , tryIoMonoidToEitherT
-  , tryIoET
-  , tryIoET'
   , fmapLeftT
   , fmapRightT
+
+  , tryIOMonoidToEitherT
+  , tryIOET
+  , tryIOET'
 
 
   ) where
@@ -59,7 +62,7 @@ import Data.Monoid
 
 import Control.Applicative
 
-import Control.Monad
+{-import Control.Monad-}
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Either
@@ -77,8 +80,8 @@ hoistMaybe :: (Monad m) => Maybe b -> MaybeT m b
 hoistMaybe = MaybeT . return
 
 -- | Analogous to 'Just' and equivalent to 'return'
-just :: (Monad m) => a -> MaybeT m a
-just a = MaybeT (return (Just a))
+{-just :: (Monad m) => a -> MaybeT m a-}
+{-just a = MaybeT (return (Just a))-}
 
 -- | Analogous to 'Nothing' and equivalent to 'mzero'
 nothing :: (Monad m) => MaybeT m a
@@ -167,6 +170,34 @@ mBoolToMaybeT def bF = boolToMaybe def <$> lift bF >>= hoistMaybe
 -- | Shorter alias for @'mBoolToMaybeT'@.
 mBToMT :: (Functor m, Monad m) => a -> m Bool -> MaybeT m a
 mBToMT = mBoolToMaybeT
+
+-- This function executes an IO action that returns a monoid value, or raises
+-- a @'IOException'@. If a @'IOException'@ is raised, or the return value
+-- is an empty monoid, the function returns @'Nothing'@ in the
+-- @MaybeT IO@ monad transformer.
+--
+-- /Note/: if a different type of exception is raised (@/= IOEXCEPTION@),
+-- then that exception is re-thrown.
+tryIOMonoidToMaybeT
+  :: (Eq a, Monoid a)
+  => IO a
+  -> MaybeT IO a
+tryIOMonoidToMaybeT ioF = do
+  {-join . fmap monoidToMaybe . eitherToMaybe-}
+                        {-<$> (lift . tryIOError) ioF-}
+                        {->>= hoistMaybe-}
+  res <- lift . tryIOError $ ioF
+  case res of
+    Left _  -> nothing
+    Right a -> hoistMaybe $ monoidToMaybe a
+
+-- A shorter alias for @'tryIOMonoidToMaybeT'@.
+tryIOMT
+  :: (Eq a, Monoid a)
+  => IO a
+  -> MaybeT IO a
+tryIOMT = tryIOMonoidToMaybeT
+
 
 ------------------------------------------------------------------------------
 -- Either --------------------------------------------------------------------
@@ -274,62 +305,6 @@ mBToET
   -> EitherT b m a
 mBToET = mBoolToEitherT
 
-{-eIoTry :: IO a -> IO (Either IOException a)-}
-{-eIoTry = try-}
-
--- /Note/: Since try is restricted to IO, this function is also restricted to
--- monad tranformers where the last monad is IO.
-tryIoMonoidToMaybeT
-  :: (Eq a, Monoid a)
-  => IO a
-  -> MaybeT IO a
-tryIoMonoidToMaybeT ioF = do
-  {-join . fmap monoidToMaybe . eitherToMaybe-}
-                        {-<$> (lift . tryIOError) ioF-}
-                        {->>= hoistMaybe-}
-  res <- lift . tryIOError $ ioF
-  case res of
-    Left _  -> nothing
-    Right a -> hoistMaybe $ monoidToMaybe a
-
--- This function executes a IO action that returns a monoid value, or raises
--- a @'IOException'@. If a @'IOException'@ is raised, or the return value
--- is an empty monoid, the function returns a left value in the
--- @EitherT IOException IO@ monad transformer. In the later case (empty monoid),
--- the exception will be of @'userErrorType'@ type, with the default string
--- \"empty monoid\". If you wish to specify your own message, see @'tryIoET''@.
---
--- /Note/: if a different type of exception is raised (@/= IOEXCEPTION@),
--- then that exception is re-thrown.
-tryIoMonoidToEitherT
-  :: (Eq a, Monoid a)
-  => IO a
-  -> EitherT IOException IO a
-tryIoMonoidToEitherT ioF
-  =   joinEitherMonoid (userError "empty monoid") <$> (lift . tryIOError) ioF
-  >>= hoistEither
-
--- | This function executes a IO action that returns a monoid value, or raises
--- an @'IOException'@. If a @'IOException'@ is raised, or the returned value
--- is an empty monoid, the function returns a left value in the
--- @EitherT IOException IO@ monad transformer. In the later case (empty monoid),
--- the exception will be of @'userErrorType'@ type, with the provided string
--- text.
-tryIoET'
-  :: (Eq a, Monoid a)
-  => String
-  -> IO a
-  -> EitherT IOException IO a
-tryIoET' err ioF
-  =   joinEitherMonoid (userError err) <$> (lift . tryIOError) ioF
-  >>= hoistEither
-
--- | This function executes a IO action that could raise an @'IOException'@.
--- If a @'IOException'@ is raised, the function returns a left value in the
--- @EitherT IOException IO@ monad transformer.
-tryIoET :: IO a -> EitherT IOException IO a
-tryIoET ioF = (lift . tryIOError) ioF >>= hoistEither
-
 -- | Change the left type using the provided conversion function.
 -- This is a specialization of @'Control.Monad.Trans.Either.bimapEitherT'@.
 --
@@ -354,3 +329,43 @@ fmapRightT
   -> EitherT a m b
   -> EitherT a m c
 fmapRightT = bimapEitherT id
+
+-- This function executes an IO action that returns a monoid value, or raises
+-- a @'IOException'@. If a @'IOException'@ is raised, or the return value
+-- is an empty monoid, the function returns a left value in the
+-- @EitherT IOException IO@ monad transformer. In the later case (empty monoid),
+-- the exception will be of @'userErrorType'@ type, with the default string
+-- \"empty monoid\". If you wish to specify your own message, see @'tryIOET''@.
+--
+-- /Note/: if a different type of exception is raised (@/= IOEXCEPTION@),
+-- then that exception is re-thrown.
+tryIOMonoidToEitherT
+  :: (Eq a, Monoid a)
+  => IO a
+  -> EitherT IOException IO a
+tryIOMonoidToEitherT ioF
+  =   joinEitherMonoid (userError "empty monoid") <$> (lift . tryIOError) ioF
+  >>= hoistEither
+
+-- | This function executes a IO action that returns a monoid value, or raises
+-- an @'IOException'@. If a @'IOException'@ is raised, or the returned value
+-- is an empty monoid, the function returns a left value in the
+-- @EitherT IOException IO@ monad transformer. In the later case (empty monoid),
+-- the exception will be of @'userErrorType'@ type, with the provided string
+-- text.
+tryIOET'
+  :: (Eq a, Monoid a)
+  => String
+  -> IO a
+  -> EitherT IOException IO a
+tryIOET' err ioF
+  =   joinEitherMonoid (userError err) <$> (lift . tryIOError) ioF
+  >>= hoistEither
+
+-- | This function executes a IO action that could raise an @'IOException'@.
+-- If a @'IOException'@ is raised, the function returns a left value in the
+-- @EitherT IOException IO@ monad transformer.
+tryIOET :: IO a -> EitherT IOException IO a
+tryIOET ioF = (lift . tryIOError) ioF >>= hoistEither
+
+
