@@ -283,13 +283,14 @@ tryIoMonoidToMaybeT
   :: (Eq a, Monoid a)
   => IO a
   -> MaybeT IO a
-tryIoMonoidToMaybeT ioF =   join . fmap monoidToMaybe . eitherToMaybe
-                        <$> (lift . tryIOError) ioF
-                        >>= hoistMaybe
-  {-res <- lift $ tryIOError ioF-}
-  {-case res of-}
-    {-Left _  -> nothing-}
-    {-Right a -> hoistMaybe $ monoidToMaybe a-}
+tryIoMonoidToMaybeT ioF = do
+  {-join . fmap monoidToMaybe . eitherToMaybe-}
+                        {-<$> (lift . tryIOError) ioF-}
+                        {->>= hoistMaybe-}
+  res <- lift . tryIOError $ ioF
+  case res of
+    Left _  -> nothing
+    Right a -> hoistMaybe $ monoidToMaybe a
 
 -- This function executes a IO action that returns a monoid value, or raises
 -- a @'IOException'@. If a @'IOException'@ is raised, or the return value
