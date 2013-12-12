@@ -161,6 +161,9 @@ module Data.UniformUtils
   , mapMonoid
   , getFirst'
   , getLast'
+  , headF
+  , lastF
+  , atF
 
   -- ** Bool
   -- | Some extra functions included, namely the simplified ternary operator
@@ -201,6 +204,7 @@ import Data.Monoid
 import Safe
 import qualified Data.List as L
 import qualified Data.Set as Set
+import qualified Data.Foldable as F
 
 ------------------------------------------------------------------------------
 -- Maybe ---------------------------------------------------------------------
@@ -824,7 +828,26 @@ getFirst' = maybeToMonoid . L.find isNotEmpty
 getLast' :: (Eq a, Monoid a) => [a] -> a
 getLast' = foldr (\x a -> if isNotEmpty a then a else x) mempty
 
+-- | A @'head'@ that fails returning @'mempty'@.
+-- Gets the first element of a foldable stucture of monoids.
+--
+-- Returns @'mempty'@ if the structure is empty.
+headF :: (F.Foldable t, Monoid a) => t a -> a
+headF = headDef mempty . F.toList
 
+-- | A @'last'@ that fails returning @'mempty'@.
+-- Gets the last element of a foldable stucture of monoids.
+-- Returns @'mempty'@ if the structure is empty.
+--
+-- /Note/: this function starts by mapping the foldable structure to a list...
+lastF :: (F.Foldable t, Monoid a) => t a -> a
+lastF = lastDef mempty . F.toList
+
+-- | A @'(!!)'@ that fails returning @'mempty'@.
+--
+-- /Note/: this function starts by mapping the foldable structure to a list...
+atF :: (F.Foldable t, Monoid a) => t a -> Int -> a
+atF lst index = flip (atDef mempty) index . F.toList $ lst
 ------------------------------------------------------------------------------
 -- Boolean -------------------------------------------------------------------
 ------------------------------------------------------------------------------
