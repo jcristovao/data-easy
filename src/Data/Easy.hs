@@ -184,6 +184,7 @@ module Data.Easy
   -- See "monoid-subclasses" module on hackage for a perhaps saner approach.
   , monoid
   , isNotEmpty
+  , notEmpty
   , isEmpty
   , fromNotEmptyNote
   , fromMonoid
@@ -355,12 +356,13 @@ list :: b -> ([a] -> b) -> [a] -> b
 list def f lst = if null lst then def else f lst
 -- could be list = monoid, but would have to add Eq restriction
 
-
--- | Alias for 'not''.''null'
+-- | Alias for @'not''.''null'@
 isFilled :: [a] -> Bool
 isFilled = not . null
 
 -- | Alias for 'not'.'null'. Yeah, it saves 3 characters.
+--
+-- > notNull = not . null
 notNull :: [a] -> Bool
 notNull = not . null
 
@@ -368,16 +370,19 @@ notNull = not . null
 isNull :: [a] -> Bool
 isNull = null
 
--- | Alias for headNote
+-- | Similar to @'headNote'@ from "Safe" package
+-- However, the text is added to the provided string error, for greater
+-- transparency.
 fromHeadNote :: String -> [a] -> a
-fromHeadNote = headNote
+fromHeadNote err []  = error err
+fromHeadNote _ (x:_) = x
 
 -- | Returns the first value of a list if not empty, or the
 -- provided default value if the list is empty
 fromList :: a -> [a] -> a
 fromList = headDef
 
--- | Alias for catMonoid
+-- | Alias for @'catMonoid'@.
 catLists :: (Eq a) => [[a]] -> [[a]]
 catLists = catMonoids
 
@@ -387,10 +392,11 @@ mapList = concatMap
 
 -- | Insert a single value into a list
 --
--- @
--- singleton = return
--- @
+-- > singleton = return
 --
+-- or
+--
+-- > singleton = (:[])
 singleton :: a -> [a]
 singleton = return
 
@@ -422,9 +428,9 @@ nubSort = Set.toAscList . Set.fromList
 -- | Sort, nub (remove duplicates) and remove initial empty value, if it
 -- exists. See 'nubSort'.
 nubSort' :: (Eq a, Ord a, Monoid a) => [a] -> [a]
-nubSort' [] = []
-nubSort' (x:xs) = if isEmpty x then xs else x:xs
-
+nubSort' lst = case nubSort lst of
+  []     -> []
+  (x:xs) -> if isEmpty x then xs else x:xs
 
 ------------------------------------------------------------------------------
 -- Tuple Pair ----------------------------------------------------------------
@@ -450,11 +456,17 @@ isPairEmpty :: (Eq a, Monoid a, Eq b, Monoid b) => (a, b) -> Bool
 isPairEmpty (x,y) = isEmpty x && isEmpty y
 
 -- | Longer (??) alias for 'fst'.
+--
+-- /Note/: included just for \'consistency\' with the rest of the API.
+-- Use @'fst'@.
 fromFst :: (a,b) -> a
 fromFst = fst
 
 -- | Longer (??) alias for 'snd'.
 fromSnd :: (a,b) -> b
+--
+-- /Note/: included just for \'consistency\' with the rest of the API.
+-- Use @'snd'@.
 fromSnd = snd
 
 -- | 'mappend' the two monoid elements of a pair
@@ -780,9 +792,13 @@ tripleToMonoid' (a,b,c)
 monoid :: (Monoid a, Eq a) => b -> (a -> b) -> a -> b
 monoid def f mon = if isEmpty mon then def else f mon
 
--- | Check it is not mempty
+-- | Check that a monoid is not mempty
 isNotEmpty :: (Monoid a, Eq a) => a -> Bool
 isNotEmpty = (/=) mempty
+
+-- | Alias for @'isNotEmpty'@.
+notEmpty :: (Monoid a, Eq a) => a -> Bool
+notEmpty = isNotEmpty
 
 -- | Check it is mempty
 isEmpty :: (Monoid a, Eq a) => a -> Bool
@@ -809,6 +825,10 @@ fromMonoid def mon = if isEmpty mon then def else mon
 
 -- | Infix fromMonoid. Equivalent to higher order ternary operator,
 -- similar to python @if@ in expressions
+--
+-- Example usage:
+--
+-- > let x = valueThatCanBeEmpty ?+ defaultValue
 infixr 1 ?+
 (?+) :: (Eq a, Monoid a) => a -> a -> a
 mon ?+ def = fromMonoid def mon

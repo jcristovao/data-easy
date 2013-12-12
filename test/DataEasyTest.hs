@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -13,7 +14,9 @@ import qualified Data.Text as T
 
 {-import Data.Monoid-}
 {-import Data.EitherR-}
+import Data.Char
 import Data.Easy
+import qualified Data.List as L
 
 import Control.Applicative
 import Control.Exception
@@ -29,6 +32,27 @@ instance CoArbitrary T.Text where
 -- Custom data type just to avoid further type annotations
 data Custom = X | Y
   deriving (Eq,Ord,Show)
+
+
+-- http://stackoverflow.com/a/9992112/516184
+-- considerably speeds up mapList test
+-- lists of up to 50 elements and with values [0,100]
+type SmallIntList = [Int]
+
+instance Arbitrary SmallIntList where
+  arbitrary = sized $ \s -> do
+                 n <- choose (2,s `min` 50)
+                 xs <- vectorOf n (choose (0,100))
+                 return xs
+
+newtype EvenSizedList = EvenSizedList [Int] deriving (Eq,Show)
+
+instance Arbitrary EvenSizedList where
+  arbitrary = sized $ \s -> do
+                 n <- suchThat (choose (0,s `min` 50)) even
+                 xs <- vectorOf n (choose (-10000,10000))
+                 return (EvenSizedList xs)
+  shrink (EvenSizedList xs) = fmap EvenSizedList (shrink xs)
 
 {-# ANN specs ("HLint: ignore Redundant do"::String) #-}
 {-# ANN specs ("HLint: ignore Use mappend"::String) #-}
@@ -166,6 +190,135 @@ specs = do
 -- List ----------------------------------------------------------------------
 ------------------------------------------------------------------------------
   describe "List" $ do
+    describe "list" $ do
+      it "applies a function to a non-empty list" $ do
+        list "empty" concat (["abc","def"]::[String]) `shouldBe` "abcdef"
+      it "returns the default value for an empty list" $ do
+        list "empty" concat ([]::[String]) `shouldBe` "empty"
+
+    describe "isFilled | notNull | isNull" $ do
+      it "matches equivalent implementations" $ do
+        property $ \(lst :: String) -> isFilled lst == (not . null) lst
+        property $ \(lst :: String) -> isFilled lst == notNull lst
+        property $ \(lst :: String) -> isFilled lst == not (isNull lst)
+
+    describe "fromHeadNote" $ do
+      {-let excpt e = case e of { PatternMatchFail _ -> True ; _ -> False }-}
+      it "matches equivalent implementation" . property $
+        \(lst :: String) -> notNull lst ==> fromHeadNote "error" lst == headNote "error" lst
+      it "raises the specified error on an empty list" $
+        evaluate (fromHeadNote "error" []) `shouldThrow` errorCall "error"
+
+    describe "fromList" $ do
+      it "matches equivalent implementation" . property $
+        \(lst :: String) -> fromList 'a' lst == headDef 'a' lst
+
+    describe "catLists" $ do
+      it "filters out empty lists inside a list" $
+        catLists (["","abc","","","def",""]::[String]) `shouldBe` ["abc","def"]
+
+    describe "mapList" $ do
+      let rep i = replicate i "?" :: [String]
+      it "matches an equivalent implementation" . property $
+        \(lst :: SmallIntList) -> mapList rep lst == (rep =<< lst)
+
+    describe "singleton" $ do
+      it "matches an equivalent implementation" . property $
+        \(x::Int) -> singleton x == (:[]) x
+
+    describe "mapF" $ do
+      let functionList = [isSpace,isSeparator,isDigit]
+      it "applies a list of functions to a value, and returns a list of values" $ do
+        mapF ' ' functionList `shouldBe` [True,True,False]
+      it "matches an equivalent implementation" . property $
+        \ch -> mapF ch functionList == sequence functionList ch
+
+    describe "nubSort" $ do
+      it "matches an equivalent implementation" . property $
+        \(lst :: [String]) -> nubSort lst == (L.nub . L.sort) lst
+
+    describe "nubSort'" $ do
+      it "matches an equivalent implementation" . property $
+        \(lst :: [String]) -> nubSort' lst == (nonEmpty . L.nub . L.sort) lst
+
+------------------------------------------------------------------------------
+-- Tuple Pair ----------------------------------------------------------------
+-- Monoid class restriction will be used when applicable ---------------------
+------------------------------------------------------------------------------
+  describe "Tuple Pair" $ do
+    describe "pair" $ do
+      it "joins the two tuple member results" . property $
+        \((x,y)::(String,Int)) -> pair (++"a") show (x,y) == x ++ "a" ++ (show y)
+
+      it "keeps only one if the other results in mempty" . property $
+        \((x,y)::(String,Int)) -> pair (const "") show (x,y) == show y
+
+    describe "pairS" $ do
+      it "joins the two tuple member results" . property $
+        \((x,y)::(String,String))
+          -> pair (++"a") (++"b") (x,y) == x ++ "a" ++ y ++ "b"
+
+      -- we count on QuickCheck to generate empty values in either side
+      it "keeps only one if the other results in mempty" . property $
+        \((x,y)::(String,String)) -> pair id id (x,y) == x ++ y
+
+    describe "isPairNotEmpty" $ do
+      let emptS = "" :: String
+      let emptT = "" :: Text
+      it "two empty values returns False" $
+        isPairNotEmpty (emptS,emptT) `shouldBe` False
+      it "one non-empty value returns True" . property $
+        \((x,y) :: (String,Text)) -> not (isEmpty x && isEmpty y)
+          ==> isPairNotEmpty (x,y)
+      it "two non-empty values return True" . property $
+        \((x,y) :: (String,Text)) -> notEmpty x && notEmpty y
+          ==> isPairNotEmpty (x,y)
+
+    describe "isPairEmpty" $ do
+      it "not . isPairNotEmpty" . property $
+        \((x,y) :: (String,Text)) -> isPairEmpty (x,y) == not (isPairNotEmpty (x,y))
+
+    describe "fromPairNote" $ do
+      it "joins the two non-empty tuple members" . property $
+        \((x,y)::(String,String)) -> not (isEmpty x && isEmpty y)
+          ==> fromPairNote "err" (x,y) == x ++ y
+      it "raises the specified error on two empty tuple members " $
+        evaluate (fromPairNote "error" (("","")::(String,String)))
+          `shouldThrow` errorCall "error"
+
+    describe "fromPair" $ do
+      it "joins the two non-empty tuple members" . property $
+        \((x,y)::(String,String)) -> not (isEmpty x && isEmpty y)
+          ==> fromPair "default" (x,y) == x ++ y
+      it "uses the default value on two empty tuple members" $
+        fromPair "default" (("","")::(String,String)) `shouldBe` "default"
+
+    describe "listToPairNote" $ do
+      it "raises the specified error on an empty list" $
+        evaluate (listToPairNote "error" []) `shouldThrow` errorCall "error"
+      it "raises the specified error on an singleton list" $
+        evaluate (listToPairNote "error" ([1]::[Int])) `shouldThrow` errorCall "error"
+      it "convert the first two list elements into a tuple" $ do
+        let lst = [1,2,3,4,5] :: [Int]
+        listToPairNote "error" lst `shouldBe` (1,2)
+        listToPairNote "error" (drop 3 lst) `shouldBe` (4,5)
+
+    describe "listToPairs" $ do
+      it "returns a tuple pair of empty lists on an empty list" $
+        listToPairs ([]::[Int]) `shouldBe` ([],[])
+      it "returns the 'remaining' element of a singleton list as the second element" $
+        listToPairs ([1]::[Int]) `shouldBe` ([],[1])
+      it "groups list elements two by two, with no second element, for even sized lists (excluding size zero) (1)" $ do
+        listToPairs ([1,2]::[Int])    `shouldBe` ([(1,2)],[])
+        listToPairs ([1,2,3,4]::[Int])`shouldBe` ([(1,2),(3,4)],[])
+      it "groups list elements two by two, with no second element, for even sized lists (excluding size zero) (2)"
+        . property $ \(EvenSizedList lst) -> null $ snd (listToPairs lst)
+      it "groups list elements two by two, with the last list element as the second element, for odd sized lists (excluding size one) (1)" $ do
+        listToPairs ([1,2,3]::[Int])    `shouldBe` ([(1,2)],[3])
+        listToPairs ([1,2,3,4,5]::[Int])`shouldBe` ([(1,2),(3,4)],[5])
+      it "groups list elements two by two, with the last list element as the second element, for odd sized lists (excluding size one) (2)"
+        . property $ \(EvenSizedList lst) -> length (snd (listToPairs (0:lst))) == 1
+
     describe "getFirst'" $ do
       it "gets the first non-empty element from a list featuring non-empty elements" $ do
         getFirst' (["abc","def"] :: [String]) `shouldBe` "abc"
