@@ -1,6 +1,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
--- | UniformUtils aims to make either, list, tuple, monoid and bool counterparts
--- to the functions originally defined in "Data.Maybe", whenever applicable.
+-- | "easy-data" aims to make @'Either'@, @List@, @Tuple@, @'Monoid'@ and
+-- @'Bool'@ counterparts to the functions originally defined in
+-- "Data.Maybe", whenever applicable.
 --
 -- Most functions of "Data.Maybe" are re-exported, so you may import just this
 -- module instead. The only exception(s) are partial functions such as
@@ -10,14 +11,39 @@
 -- Related functions always follow the unwritten convention of providing
 -- the default value first, except where dully noted.
 --
--- This module also adds some extra functions I found usefull, and that
--- can be found in otherwise disperse packages or pages. A relevant link
--- will be included whenever appropriate.
+-- This module also adds some extra useful functions, that can be found
+-- in otherwise disperse packages or pages. A relevant link will be included
+-- whenever appropriate.
+--
+-- The main goal is to have a consistent set of sensible convertions
+-- between types, providing either default values or custom error messages
+-- when faced with partial functions (in a mathematical sense).
+--
+-- This module is undoubtably neither original, nor providing the \'best\'
+-- implementations. Its goal is instead to provide a regular and consistent
+-- set of functions, easy do memorize and use, for the Haskell beginner.
+--
+-- Most functions are one-liners, and you should read their actual code
+-- and study a possible better implementations, or find that it has probably
+-- already been done, in one of the libraries linked below:
+--
+-- "safe"
+-- "either"
+-- "errors"
+-- "basic-prelude"
+-- "core-prelude"
+-- "missingh"
+--
+-- Please notify me if you think I'm missing some other library.
+--
+-- Or, perhaps, you should be using the one liner instead of the
+-- function defined here, has it is probably more idiomatic Haskell.
+-- However, you might find these useful nonetheless!
 --
 -- Some choices have been made, and I am open to discussion whether they
 -- are adequate or not. Please contribute and help me make this a (even)
--- more sane module.
-module Data.UniformUtils
+-- more easy and consistent module.
+module Data.Easy
   ( -- * Module exports
     module Data.Maybe
   , module Data.Either
@@ -44,15 +70,23 @@ module Data.UniformUtils
   , fromEither
   , listToEither
   , eitherToList
-  , maybeToEither
-  , eitherToMaybe
   , catEithers
   , mapEither
+
+  , maybeToEither
+  , eitherToMaybe
   , eitherToMonoid
   , monoidToEither
   , joinEitherMonoid
 
   -- ** List
+  -- | Data.Maybe counterparts for List, plus some extra functions.
+  -- One special note for 'nubSort': this is the only \'optimized\'
+  -- function in this library, mainly because the original
+  -- @nub . sort@ performance is so bad.
+  -- Nevertheless, never forget that you should probably not be using
+  -- lists anyhow:
+  -- <http://www.haskell.org/haskellwiki/Performance>
   , list
   , isFilled
   , notNull
@@ -226,10 +260,14 @@ monoidToMaybe = monoid Nothing Just
 ------------------------------------------------------------------------------
 
 -- | Force a right value, or otherwise fail with provided error message
+--
+-- > fromRightNote err = either (error err) id
 fromRightNote :: String -> Either a b -> b
 fromRightNote err = either (error err) id
 
 -- | Force a left value, or otherwise fail with provided error message
+--
+-- > fromLeftNote err = either id (error err)
 fromLeftNote :: String -> Either a b -> a
 fromLeftNote err = either id (error err)
 
@@ -244,25 +282,10 @@ listToEither def = maybeToEither def . listToMaybe
 
 -- | Extracts the right value of an either to a singleton list, or an
 -- empty list if the Either value is a Left
+--
+-- /Note/: A Left value is lost in the convertion.
 eitherToList :: Either a b -> [b]
 eitherToList = either (const []) singleton
-
--- | Convert a Maybe value to an Either value, with the provided default used
--- as Left value if the Maybe value is Nothing
-maybeToEither :: a -> Maybe b -> Either a b
-maybeToEither def = maybe (Left def) Right
-
--- | Convert an Either value to a Maybe value
---
--- This function is provided with a different name convention on
--- @Data.Either.Combinators@:
---
--- @
--- 'eitherToMaybe' = 'rightToMaybe'
--- @
---
-eitherToMaybe :: Either a b -> Maybe b
-eitherToMaybe = rightToMaybe
 
 -- | The 'catEithers' function takes a list of 'Either's and returns
 -- a list of all the 'Right' values.
@@ -281,8 +304,28 @@ catEithers = rights
 -- something of type @'Either' a b@.  If this is 'Left a', no element
 -- is added on to the result list.  If it just @'Right' b@, then @b@ is
 -- included in the result list.
+--
+-- > mapEither f = rights . map f
 mapEither :: (a -> Either b c) -> [a] -> [c]
 mapEither f = catEithers . map f
+
+-- | Convert a Maybe value to an Either value, with the provided default used
+-- as Left value if the Maybe value is Nothing
+maybeToEither :: a -> Maybe b -> Either a b
+maybeToEither def = maybe (Left def) Right
+
+-- | Convert an Either value to a Maybe value
+--
+-- This function is provided with a different name convention on
+-- @Data.Either.Combinators@:
+--
+-- @
+-- 'eitherToMaybe' = 'rightToMaybe'
+-- @
+--
+eitherToMaybe :: Either a b -> Maybe b
+eitherToMaybe = rightToMaybe
+
 
 -- | eitherToMonoid extract the right sided monoid into a single monoid
 -- value, or mempty in the case of a left value.

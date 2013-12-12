@@ -2,12 +2,11 @@
 
 import Test.Hspec
 
-import Data.UniformUtils
-import Control.Monad.Trans.Convert
+import Data.Easy
 
-import qualified CMTCTest as CMTCT
+import qualified DataEasyTest as DET
 
 main :: IO ()
 main = hspec $ do
-  CMTCT.specs
+  DET.specs
 

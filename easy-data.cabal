@@ -1,9 +1,12 @@
--- The name of the package.
-name:                uniform-utils
+name:                easy-data
 version:             0.1.0.0
-synopsis:            Uniform set of utility functions for Maybe, Either, List and Booleans
--- description:         
-homepage:            https://github.com/jcristovao/uniform-utils
+synopsis:            Consistent set of utility functions for Maybe, Either, List, Monoids.
+description:         Easy to use set of utility functions, implementing a Data.Maybe like
+                     interface for other common types, like Either, List, Bool, Tuple, 
+                     or even member of the Monoid type class.
+                     Also features a set of conversion functions among them, 
+                     using sensible defaults.
+homepage:            https://github.com/jcristovao/easy-data
 license:             BSD3
 license-file:        LICENSE
 author:              João Cristóvão
@@ -20,22 +23,16 @@ cabal-version:       >=1.18
 
 library
   -- Modules exported by the library.
-  exposed-modules: Data.UniformUtils
-                   Control.Monad.Trans.Convert
+  exposed-modules: Data.Easy
   
   -- Modules included in this library but not exported.
   -- other-modules:       
   
   -- Other library packages from which modules are imported.
-  build-depends   : base          >=4.6 && < 4.8
-                  , transformers  >= 0.3
+  build-depends   : base          >= 4.6 && < 4.8
                   , either        >= 4.0
                   , safe          >= 0.3.3
                   , containers    >= 0.5.0.0
-                  --, errors        >= 1.4.4
-                  -- this is for debug purposes only
-                  --, text          >= 0.11.3
-                  , directory    >= 1.2.0.1
   
   -- Directories containing source files.
   hs-source-dirs:      src 
@@ -55,11 +52,12 @@ test-suite test
                 , safe          >= 0.3.3
                 , containers    >= 0.5.0.0
                 , text          >= 0.11.3
-                , errors             >= 1.4.3
+                , errors        >= 1.4.3
                 , directory     >= 1.2.0.1
                 , QuickCheck    >= 2.6
                 , HUnit         >= 1.2.5.2
                 , hspec         >= 1.7.2
                 , unix          >= 2.6
+                , haskell-src-exts >= 1.14
                 , hlint
   default-language : Haskell2010
