@@ -707,11 +707,10 @@ catTriples :: (Eq a, Monoid a) => [(a,a,a)] -> [a]
 catTriples = mapMonoid (fromTriple mempty)
 -- TODO
 
--- | Apply the provided function to each triple, and keep only the non-empty
--- monoids.
--- /Note/: alias for 'mapMonoid'
-mapTriple :: (Eq b, Monoid b) => (a -> b) -> [a] -> [b]
-mapTriple = mapMonoid
+-- | Apply the provided function to each list element resulting in a triple,
+-- and keep only the non-empty monoids concat results.
+mapTriple :: (Eq b, Monoid b) => (a -> (b,b,b)) -> [a] -> [b]
+mapTriple f = catTriples . fmap f
 
 -- | Pair to Triple, inserting the missing element in first place
 --
