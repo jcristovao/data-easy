@@ -544,28 +544,29 @@ eitherToPair' :: Monoid a => b -> Either b a -> (a, b)
 eitherToPair' def = either ((,) mempty) (\rgt -> (,) rgt def)
 
 -- | Transform a pair onto a @'Maybe'@
--- If both the values are non-empty, the first one is returned wrapped in
--- a Just. If just one value is not-empty, that value is returned,
--- irrespectively if it is the first or second.
--- Otherwise, this function returns Nothing.
+-- This function follows the same convention as @'pairToEither'@, and thus
+-- the second value is considered the most important one, and as such
+-- will take precedence over the first if both are not empty.
+-- If you prefer the first value to take precedence, see @'pairToMaybe''@.
+-- If both elements of the pair are @'mempty'@, this function returns @'Nothing'@.
 --
--- /Note/: the reciprocal of this function is @'pairToMaybe''@.
+-- /Note/: the reciprocal of this function is @'pairToMaybe'@.
 --
--- > pairToMaybe = monoid (monoid Nothing Just b) Just a
+-- > pairToMaybe = monoid (monoid Nothing Just a) Just b
 pairToMaybe :: (Eq a, Monoid a) => (a,a) -> Maybe a
-pairToMaybe (a,b) = monoid (monoid Nothing Just b) Just a
+pairToMaybe (a,b) = monoid (monoid Nothing Just a) Just b
 
 -- | Transform a pair onto a @'Maybe'@
--- If both the values are non-empty, the second one is returned wrapped in
+-- If both the values are non-empty, the first one is returned wrapped in
 -- a Just. If just one value is not-empty, that value is returned,
 -- irrespectively if it is the first or second.
 -- Otherwise, this function returns Nothing.
 --
 -- /Note/: the reciprocal of this function is @'pairToMaybe'@.
 --
--- > pairToMaybe = monoid (monoid Nothing Just b) Just a
+-- > pairToMaybe' = monoid (monoid Nothing Just b) Just a
 pairToMaybe' :: (Eq a, Monoid a) => (a,a) -> Maybe a
-pairToMaybe' (a,b) = monoid (monoid Nothing Just a) Just b
+pairToMaybe' (a,b) = monoid (monoid Nothing Just b) Just a
 
 
 -- | Transform the first element of a pair (if it is a monoid) into an @'Maybe'@.

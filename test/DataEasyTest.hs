@@ -342,6 +342,68 @@ specs = do
              . filter (\(a,b) -> not (isEmpty a && isEmpty b))
              . fmap f) lst
 
+    describe "pairToEither" $ do
+      it "keeps the second pair value if not empty" . property $
+        \((a,b)::(Int,String)) -> let
+          f = fromEither "abc" . pairToEither $ (a,b)
+          in f == "abc" || f == b
+      it "keeps the first element for empty values" $ do
+        pairToEither (0,(""::String)) `shouldBe` (Left 0 :: Either Int String)
+        pairToEither (0,(""::Text  )) `shouldBe` (Left 0 :: Either Int Text  )
+
+    describe "pairToEither'" $ do
+      it "keeps the first pair value if not empty" . property $
+        \((a,b)::(Int,String)) -> let
+          f = fromRight ("abc"::String) . pairToEither' $ (b,a)
+          in f == "abc" || f == b
+      it "keeps the first element for empty values" $ do
+        pairToEither' ((""::String),0) `shouldBe` (Left 0 :: Either Int String)
+        pairToEither' ((""::Text  ),0) `shouldBe` (Left 0 :: Either Int Text)
+
+    describe "pairBothToEither" $ do
+      it "keeps the first non-empty monoid value" . property $
+        \((a,b)::(String,String)) -> not (isNull a && isNull b) ==>
+        pairBothToEither ("!?"::String) (a,b) == Right (if isNull a then b else a)
+      it "returns the default value as Left value if both pair members are mempty" $ do
+        pairBothToEither "!?" (("","")::(String, String))
+          `shouldBe` Left ("!?"::String)
+        pairBothToEither "!?" (("","")::(Text  , Text  ))
+          `shouldBe` Left ("!?"::Text)
+
+    describe "eitherToPair" $ do
+      it "transforms a Left value into a (left,mempty) pair" $
+        eitherToPair 0 ((Left 1)::Either Int Text)
+          `shouldBe` ((1,"")::(Int,Text))
+      it "transforms a Right value into a (def,right) pair" $
+        eitherToPair 0 ((Right "abc")::Either Int Text)
+          `shouldBe` ((0,"abc")::(Int,Text))
+
+
+    describe "eitherToPair'" $ do
+      it "transforms a Left value into a (mempty,left) pair" $
+        eitherToPair' 0 ((Left 1)::Either Int Text)
+          `shouldBe` (("",1)::(Text,Int))
+      it "transforms a Right value into a (def,right) pair" $
+        eitherToPair' 0 ((Right "abc")::Either Int Text)
+          `shouldBe` (("abc",0)::(Text,Int))
+
+    describe "pairToMaybe" $ do
+      it "keeps the first non-empty monoid value, starting by the second pair element"
+        . property $ \((a,b)::(String,String)) -> not (isNull a && isNull b) ==>
+          pairToMaybe (a,b) == Just (if isNull b then a else b)
+      it "returns Nothing if both are mempty" $
+        pairToMaybe (("","")::(String,String)) `shouldBe` (Nothing :: Maybe String)
+
+    describe "pairToMaybe'" $ do
+      it "keeps the first non-empty monoid value, starting by the first pair element"
+        . property $ \((a,b)::(String,String)) -> not (isNull a && isNull b) ==>
+          pairToMaybe'(a,b) == Just (if isNull a then b else a)
+      it "returns Nothing if both are mempty" $
+        pairToMaybe'(("","")::(String,String)) `shouldBe` (Nothing :: Maybe String)
+
+
+
+
     describe "getFirst'" $ do
       it "gets the first non-empty element from a list featuring non-empty elements" $ do
         getFirst' (["abc","def"] :: [String]) `shouldBe` "abc"
