@@ -319,6 +319,29 @@ specs = do
       it "groups list elements two by two, with the last list element as the second element, for odd sized lists (excluding size one) (2)"
         . property $ \(EvenSizedList lst) -> length (snd (listToPairs (0:lst))) == 1
 
+    -- no point in testing out group2, it is just fst . listToPairs
+
+    describe "pairToList" $ do
+      it "inserts both elements of the tuple pair in a list" . property $
+        \((x,y)::(Int,Int)) -> pairToList (x,y) == [x,y]
+
+    describe "catPairs" $ do
+      it "eliminates 'empty' pairs from list" . property $
+        \(lst::[(String,String)]) -> catPairs lst
+          == ( fmap (uncurry (++))
+             $ filter (\(a,b) -> not (isEmpty a && isEmpty b)) lst)
+
+    describe "mapPair" $ do
+      it "works for a simple case" $ do
+        let f str = ('a':str,tailSafe str)
+        mapPair f ["sd","xpto"] `shouldBe` (["asdd","axptopto"] :: [String])
+      it "Applies a function to each pair, and keeps only non-empty results" . property $ do
+        let f str = ('a':str,tailSafe str)
+        \(lst::[String]) -> mapPair f lst
+          == ( fmap (uncurry (++))
+             . filter (\(a,b) -> not (isEmpty a && isEmpty b))
+             . fmap f) lst
+
     describe "getFirst'" $ do
       it "gets the first non-empty element from a list featuring non-empty elements" $ do
         getFirst' (["abc","def"] :: [String]) `shouldBe` "abc"

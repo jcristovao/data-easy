@@ -506,11 +506,10 @@ pairToList (a,b) = [a,b]
 catPairs :: (Eq a, Monoid a) => [(a,a)] -> [a]
 catPairs = mapMonoid (fromPair mempty)
 
--- | Apply the provided function to each pair, and keep only the non-empty
--- monoids
--- /Note/: alias for 'mapMonoid'
-mapPair :: (Eq b, Monoid b) => (a -> b) -> [a] -> [b]
-mapPair = mapMonoid
+-- | Applies a pair returning function to each list element,
+-- and keeps only the non-empty mappend results (between the pair elements).
+mapPair :: (Eq b, Monoid b) => (a -> (b,b)) -> [a] -> [b]
+mapPair f = catPairs . fmap f
 
 -- | Transform a pair into an either.
 -- We adopt the convention that the second value is the one of interest.

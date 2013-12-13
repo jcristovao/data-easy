@@ -1,5 +1,5 @@
 name:                easy-data
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Consistent set of utility functions for Maybe, Either, List, Monoids.
 description:         Easy to use set of utility functions, implementing a Data.Maybe like
                      interface for other common types, like Either, List, Bool, Tuple, 
