@@ -401,8 +401,141 @@ specs = do
       it "returns Nothing if both are mempty" $
         pairToMaybe'(("","")::(String,String)) `shouldBe` (Nothing :: Maybe String)
 
+    describe "pairFstToMaybe" $ do
+      it "extracts the first element and applies monoidToMaybe" . property $
+        \((a,b)::(String,Int)) ->
+          pairFstToMaybe (a,b) == if isEmpty a then Nothing else Just a
+
+    describe "pairSndToMaybe" $ do
+      it "extracts the last element and applies monoidToMaybe" . property $
+        \((a,b)::(Int,String)) ->
+          pairSndToMaybe (a,b) == if isEmpty b then Nothing else Just b
+
+    describe "maybeToPair" $ do
+      it "tranforms a Just value x into (default,x)" . property $
+        \(a::String) ->
+          maybeToPair (1::Int) (Just a) == (1,a)
+      it "transforms a Nothing value into (default,mempty) (string)" $
+        maybeToPair (1::Int) Nothing == ((1,"")::(Int,String))
+      it "transforms a Nothing value into (default,mempty) (Text)" $
+        maybeToPair (1::Int) Nothing == ((1,"")::(Int,Text))
+
+    describe "maybeToPair'" $ do
+      it "tranforms a Just value x into (x,default)" . property $
+        \(a::String) ->
+          maybeToPair' (1::Int) (Just a) == (a,1)
+      it "transforms a Nothing value into (default,mempty) (string)" $
+        maybeToPair' (1::Int) Nothing == (("",1)::(String,Int))
+      it "transforms a Nothing value into (default,mempty) (Text)" $
+        maybeToPair' (1::Int) Nothing == (("",1)::(Text,Int))
+
+    describe "pairToMonoid" $ do
+      it "finds the first non-empty monoid in the pair, and returns it"
+        . property $ \((a,b)::(String,String)) ->
+          pairToMonoid (a,b) == if isEmpty a then b else a
+
+    describe "pairToMonoid'" $ do
+      it "finds the last non-empty monoid in the pair, and returns it"
+        . property $ \((a,b)::(String,String)) ->
+          pairToMonoid' (a,b) == if isEmpty b then a else b
+
+------------------------------------------------------------------------------
+-- Monoid --------------------------------------------------------------------
+------------------------------------------------------------------------------
+
+  describe "Monoid" $ do
+    describe "monoid" $ do
+      it "returns the result of the provided function if the value is not empty"
+        . property $ \(s::String) -> isNotEmpty s ==>
+        monoid (-1) Prelude.length s == Prelude.length s
+
+      it "returns the default value on an empty value" $
+        monoid (-1) Prelude.length (""::String) `shouldBe` (-1)
+
+    describe "isNotEmpty" $ do
+      it "it checks a monoit is not empty" $ do
+        property $ \(s::String) -> (not . null) s ==> isNotEmpty s
+        property $ \(s::Text  ) -> (not . T.null) s ==> isNotEmpty s
+        property $ \(s::[Int] ) -> (not . null) s ==> isNotEmpty s
+      it "it returns False on an empty monoid" $ do
+        (""::String) `shouldSatisfy` null
+        (""::Text  ) `shouldSatisfy` T.null
+        ([]::[Int] ) `shouldSatisfy` null
+
+    describe "notEmpty" .
+      it "it matches an equivalent implementation" . property
+      $ \(s::Text) -> notEmpty s == isNotEmpty s
+
+    describe "isEmpty" $ do
+      it "matches an equivalent implementation" $ do
+        property $ \(s::Text)   -> isEmpty s == T.null s
+        property $ \(s::String) -> isEmpty s == null s
+        property $ \(s::[Int])  -> isEmpty s == null s
+      it "is the logical negation of isNotEmpty" $ do
+        property $ \(s::Text)   -> isEmpty s == (not . isNotEmpty) s
+
+    describe "fromNotEmptyNote" $ do
+      it "returns the value from an not empty monoit" $ do
+        property $ \(s::Text)   -> isNotEmpty s ==> fromNotEmptyNote "!?" s == s
+        property $ \(s::String) -> isNotEmpty s ==> fromNotEmptyNote "!?" s == s
+        property $ \(s::[Int])  -> isNotEmpty s ==> fromNotEmptyNote "!?" s == s
+
+      it "raises the specified error on an empty monoid" $ do
+        evaluate (fromNotEmptyNote "error" (""::String))
+          `shouldThrow` errorCall "error"
+        evaluate (fromNotEmptyNote "error" (""::Text))
+          `shouldThrow` errorCall "error"
+
+    describe "fromMonoid" $ do
+      it "returns the value from an not empty monoid" $ do
+        property $ \(s::Text)   -> isNotEmpty s ==> fromMonoid "!?" s == s
+        property $ \(s::String) -> isNotEmpty s ==> fromMonoid "!?" s == s
+        property $ \(s::[Int])  -> isNotEmpty s ==> fromMonoid [1] s == s
+      it "returns the provided default value on an empty monoid" $ do
+        fromMonoid "!?" (""::Text  ) `shouldBe` "!?"
+        fromMonoid "!?" (""::String) `shouldBe` "!?"
+        fromMonoid [1]  ([]::[Int])  `shouldBe` [1]
+
+    describe "?+" $ do
+      it "returns the value from an not empty monoid" $ do
+        property $ \(s::Text)   -> isNotEmpty s ==> (s ?+ "!?") == s
+        property $ \(s::String) -> isNotEmpty s ==> (s ?+ "!?") == s
+        property $ \(s::[Int])  -> isNotEmpty s ==> (s ?+ [1] ) == s
+      it "returns the provided default value on an empty monoid" $ do
+        ((""::Text  ) ?+ "!?") `shouldBe` "!?"
+        ((""::String) ?+ "!?") `shouldBe` "!?"
+        (([]::[Int])  ?+ [1] ) `shouldBe` [1]
+
+    describe "listToMonoid" $ do
+      it "extracts the first element from a monoid list" $ do
+        listToMonoid (["abc","def"]::[String]) `shouldBe` "abc"
+        listToMonoid (["abc","def"]::[Text  ]) `shouldBe` "abc"
+        listToMonoid ([[1,2,3],[5,6]]::[[Int]])`shouldBe` [1,2,3]
+      it "returns mempty on an empty list" $ do
+        listToMonoid ([]::[String]) `shouldBe` ""
+        listToMonoid ([]::[Text  ]) `shouldBe` ""
+        listToMonoid ([]::[[Int] ]) `shouldBe` []
+
+    describe "monoidToList" $ do
+      it "converts a monoid value into a singleton list featuring that monoid" $ do
+        monoidToList ("abc"::String) `shouldBe` ["abc"]
+        monoidToList ("abc"::Text  ) `shouldBe` ["abc"]
+        monoidToList ([1,2]::[Int] ) `shouldBe` [[1,2]]
+      it "converts an empty monoid value into an empty list" $ do
+        monoidToList (""::String) `shouldBe` []
+        monoidToList (""::Text  ) `shouldBe` []
+        monoidToList ([]::[Int] ) `shouldBe` []
 
 
+    describe "catMonoids" $ do
+      it "matches an equivalent implementation" . property $
+        \(sLst :: [String]) -> catMonoids sLst == filter (not.null) sLst
+      it "returns an empty list on a list of empty monoids" $
+        catMonoids (["","",""]::[Text]) `shouldBe` []
+
+    describe "nonEmpty" $ do
+      it "matches an equivalent implementations" . property $
+        \(tLst :: [Text]) -> nonEmpty tLst == filter (not . T.null) tLst
 
     describe "getFirst'" $ do
       it "gets the first non-empty element from a list featuring non-empty elements" $ do
@@ -413,6 +546,199 @@ specs = do
       it "returns mempty for an empty list" $ do
         getFirst' ([] :: [String]) `shouldBe` ""
 
-
       it "returns mempty for an list of empty values" $ do
         getFirst' (["",""] :: [String]) `shouldBe` ""
+
+      it "is lazy, does not crash on infinite lists" $ do
+        getFirst' (fmap (const ("abc"::String)) ([1..]::[Int])) `shouldBe` "abc"
+
+    describe "getLast'" $ do
+      it "gets the last non-empty element from a list featuring non-empty elements" $ do
+        getLast' (["abc","def"] :: [String]) `shouldBe` "def"
+        getLast' (["def",""] :: [String])    `shouldBe` "def"
+        getLast' (["abc"] :: [String])       `shouldBe` "abc"
+
+      it "returns mempty for an empty list" $ do
+        getLast' ([] :: [String]) `shouldBe` ""
+
+      it "returns mempty for an list of empty values" $ do
+        getLast' (["",""] :: [String]) `shouldBe` ""
+
+    describe "headF" $ do
+      it "returns the first element of a foldable structure of monoids" $ do
+        headF (["abc","def"]::[String])     `shouldBe` "abc"
+        headF (["","def"   ]::[Text  ])     `shouldBe` ""
+        headF ((Just "abc") ::Maybe String) `shouldBe` "abc"
+
+      it "returns mempty if the structure is empty" $ do
+        headF ([]::[String]) `shouldBe` ""
+        headF ([]::[Text])    `shouldBe` ""
+        headF (Nothing :: Maybe String) `shouldBe` ""
+
+      it "is lazy, does not crash on infinite lists" $ do
+        headF (fmap (const ("abc"::String)) ([1..]::[Int])) `shouldBe` "abc"
+
+  describe "lastF" $ do
+    it "returns the last element of a foldable structure of monoids" $ do
+      lastF (["abc","def"]::[String])   `shouldBe` "def"
+      lastF (["def",""]   ::[Text])     `shouldBe` ""
+      lastF ((Just "abc") ::Maybe Text) `shouldBe` "abc"
+
+    it "returns mempty if the structure is empty" $ do
+      lastF ([]::[String]) `shouldBe` ""
+      lastF ([]::[Text])    `shouldBe` ""
+      lastF (Nothing :: Maybe String) `shouldBe` ""
+
+  describe "atF" $ do
+    it "returns the element at the provided index for appropriate size foldable structures of monoids" $ do
+      (["0","1","2"]::[String]) `atF` 0 `shouldBe` "0"
+      (["0","1","2"]::[Text  ]) `atF` 1 `shouldBe` "1"
+      (Just "abc"::Maybe String)`atF` 0 `shouldBe` "abc"
+
+    it "returns mempty for an empty structure" $ do
+      ([]::[String]) `atF` 0 `shouldBe` ""
+      ([]::[Text  ]) `atF` 0 `shouldBe` ""
+      (Nothing::Maybe Text) `atF` 0 `shouldBe` ""
+
+    it "handles invalid indexes" $ do
+      (["1"]::[String]) `atF` 1    `shouldBe` ""
+      (["1"]::[String]) `atF` (-1) `shouldBe` ""
+
+  describe "@@" $ do
+    it "returns the element at the provided index for appropriate size foldable structures of monoids" $ do
+      (["0","1","2"]::[String])  @@ 0 `shouldBe` "0"
+      (["0","1","2"]::[Text  ])  @@ 1 `shouldBe` "1"
+      (Just "abc"::Maybe String) @@ 0 `shouldBe` "abc"
+
+    it "returns mempty for an empty structure" $ do
+      ([]::[String]) @@ 0 `shouldBe` ""
+      ([]::[Text  ]) @@ 0 `shouldBe` ""
+      (Nothing::Maybe Text) @@ 0 `shouldBe` ""
+
+
+    it "handles invalid indexes" $ do
+      (["1"]::[String]) `atF` 1    `shouldBe` ""
+      (["1"]::[String]) `atF` (-1) `shouldBe` ""
+
+------------------------------------------------------------------------------
+-- Boolean -------------------------------------------------------------------
+------------------------------------------------------------------------------
+
+  describe "Bool" $ do
+    describe "fromBool" $ do
+      it "returns the provided value if the boolean is true" $ do
+        fromBool 'a' True  'z' `shouldBe` 'z'
+      it "returns the default value if the boolean is False" $ do
+        fromBool 'a' False 'z' `shouldBe` 'a'
+
+    describe "fromBoolC" $ do
+      it "returns the provided value if the bool returning function returns True once aplied to the value" $ do
+        fromBoolC 'z' isDigit '0' `shouldBe` '0'
+      it "returns the default value if the bool returning function returns False once aplied to the value" $ do
+        fromBoolC 'z' isSpace '0' `shouldBe` 'z'
+
+    describe "catBools" $ do
+      it "returns a list with the True values. Mostly useless" $
+        catBools [True,False,False,True,False] `shouldBe` [True,True]
+
+    describe "?" $ do
+      it "behaves like if" . property $
+        \(s::String) -> (isNull s ? "!?" $ s) == if isNull s then "!?" else s
+
+    describe "?$" $ do
+      it "behaves like if" . property $
+        \(s::String) -> (notEmpty ?$ s $ "!?") == if notEmpty s then s else "!?"
+
+    describe "?|" $ do
+      it "behaves like if" . property $
+        \(s::String) -> (s ?| notEmpty $ "!?") == if notEmpty s then s else "!?"
+
+    describe "boolToMaybe" $ do
+      it "keeps a value in a Just for a True boolean" $ do
+        boolToMaybe (1::Int) True `shouldBe` Just 1
+      it "returns Nothing for a False boolean" $ do
+        boolToMaybe (1::Int) False `shouldBe` Nothing
+
+    describe "ifToMaybe" $ do
+      it "keeps a value in a Just for a True boolean" $ do
+        ifToMaybe True (1::Int) `shouldBe` Just 1
+      it "returns Nothing for a False boolean" $ do
+        ifToMaybe False (1::Int) `shouldBe` Nothing
+
+    describe "boolCToMaybe" $ do
+      it "keeps a value in a Just for if the provided value test returns True" $ do
+        boolCToMaybe (1::Int) (>0) `shouldBe` Just 1
+      it "returns Nothing if the provided value test returns False" $ do
+        boolCToMaybe (1::Int) (<0) `shouldBe` Nothing
+
+    describe "ifCToMaybe" $ do
+      it "keeps a value in a Just for if the provided value test returns True" $ do
+        ifCToMaybe (>0) (1::Int) `shouldBe` Just 1
+      it "returns Nothing if the provided value test returns False" $ do
+        ifCToMaybe (<0) (1::Int) `shouldBe` Nothing
+
+    describe "boolToEither" $ do
+      it "Returns the second value if the boolean value is True" $
+        boolToEither ("aaa"::Text) (1::Int) True  `shouldBe` Right 1
+      it "Returns the first  value if the boolean value is False" $
+        boolToEither ("aaa"::Text) (1::Int) False `shouldBe` Left "aaa"
+
+    describe "boolCToEither" $ do
+      it "Returns the second value if the boolean test on the second value returns True" $
+        boolCToEither ("aaa"::Text) (1::Int) (>0) `shouldBe` Right 1
+      it "Returns the first  value if the boolean test on the second value returns False" $
+        boolCToEither ("aaa"::Text) (1::Int)  (<0) `shouldBe` Left "aaa"
+
+    describe "boolToList" $ do
+      it "Returns a singleton list if the boolean value is True" $
+        boolToList ("aaa"::Text) True `shouldBe` ["aaa"]
+      it "Returns an empty list if the boolean value is False" $
+        boolToList ("aaa"::Text) False `shouldBe` []
+
+    describe "boolCToList" $ do
+      it "Returns a singleton list if the boolean test on the value returns True" $
+        boolCToList ("aaa"::Text) isNotEmpty `shouldBe` ["aaa"]
+      it "Returns an empty list if the boolean test on the value returns False" $
+        boolCToList ("aaa"::Text) isEmpty    `shouldBe`[]
+
+    describe "boolToMonoid" $ do
+      it "Returns the provided value if boolean value is True" $
+        boolToMonoid ("aaa"::Text) True `shouldBe` "aaa"
+      it "Returns an empty value if the boolean value is False" $
+        boolToMonoid ("aaa"::Text) False `shouldBe` ""
+
+    describe "boolCToMonoid" $ do
+      it "Returns a singleton list if the boolean test on the value returns True" $
+        boolCToMonoid ("aaa"::Text) isNotEmpty `shouldBe` "aaa"
+      it "Returns an empty list if the boolean test on the value returns False" $
+        boolCToMonoid ("aaa"::Text) isEmpty    `shouldBe` ""
+
+    describe "?&&" $ do
+      it "handles `pseudo-composition` of boolean values" $ do
+        (("aaa"::String) ?&& True ?&& True  ?&& True) `shouldBe` "aaa"
+        (("aaa"::String) ?&& True ?&& False ?&& True) `shouldBe` ""
+
+    describe "?$&&" $ do
+      it "handles `pseudo-composition` of tests of provided value" $ do
+        (("123"::String) ?$&& not . null ?$&& (\s -> length s > 2)) `shouldBe` "123"
+        (("12" ::String) ?$&& not . null ?$&& (\s -> length s > 2)) `shouldBe` ""
+
+    describe "allCond" $ do
+      it "returns True if all the tests on a variable return true" $ do
+        allCond '1' [isAlphaNum,isDigit,isPrint] `shouldBe` True
+      it "returns False if one of the tests on the variable fails" $ do
+        allCond '1' [isAlphaNum,isSpace,isPrint] `shouldBe` False
+
+
+    describe "anyCond" $ do
+      it "returns True if any of the tests on the variable succeeds" $ do
+        anyCond '1' [isSpace,isDigit,isAlpha] `shouldBe` True
+      it "returns False if none of the tests on the variable succeeds" $ do
+        anyCond '1' [isSpace,isLower,isAlpha] `shouldBe` False
+
+
+
+
+
+
+

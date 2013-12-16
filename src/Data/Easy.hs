@@ -199,6 +199,7 @@ module Data.Easy
   , headF
   , lastF
   , atF
+  , (@@)
 
   -- ** Bool
   -- | Some extra functions included, namely the simplified ternary operator
@@ -223,6 +224,7 @@ module Data.Easy
   , boolToList
   , boolCToList
   , boolToMonoid
+  , boolCToMonoid
   , (?&&)
   , (?$&&)
   , allCond
@@ -584,20 +586,19 @@ pairFstToMaybe = monoidToMaybe . fst
 pairSndToMaybe :: (Eq b, Monoid b) => (a,b) -> Maybe b
 pairSndToMaybe = monoidToMaybe . snd
 
-
 -- | Transform a @'Maybe'@ value into a pair. This follows the same
 -- convention as @'pairToMaybe'@, and thus transforms a @'Nothing'@
--- into a @('mempty', def)@, and a @'Just' value@ into a @(value,def)@.
+-- into a @(def, 'mempty')@, and a @'Just' value@ into a @(def, value)@.
 --
-maybeToPair :: Monoid a => b -> Maybe a -> (a, b)
-maybeToPair def = maybe (mempty,def) (\jst -> (,) jst def)
+maybeToPair :: Monoid b => a -> Maybe b -> (a, b)
+maybeToPair def = maybe (def,mempty) ((,) def)
 
 -- | Transform a @'Maybe'@ value into a pair. This follows the same
 -- convention as @'pairToMaybe''@, and thus transforms a @'Nothing'@
--- into a @(def, 'mempty')@, and a @'Just' value@ into a @(def, value)@.
+-- into a @('mempty', def)@, and a @'Just' value@ into a @(value,def)@.
 --
-maybeToPair' :: Monoid b => a -> Maybe b -> (a, b)
-maybeToPair' def = maybe (def,mempty) ((,) def)
+maybeToPair' :: Monoid a => b -> Maybe a -> (a, b)
+maybeToPair' def = maybe (mempty,def) (\jst -> (,) jst def)
 
 -- | Finds the first non-empty monoid in a pair, and returns it.
 -- If none found, returns @'mempty'@.
@@ -910,6 +911,12 @@ lastF = lastDef mempty . F.toList
 -- /Note/: this function starts by mapping the foldable structure to a list...
 atF :: (F.Foldable t, Monoid a) => t a -> Int -> a
 atF lst index = flip (atDef mempty) index . F.toList $ lst
+
+-- | Infix version of @'afF'@.
+infixl 9 @@
+(@@) :: (F.Foldable t, Monoid a) => t a -> Int -> a
+lst @@ index = flip (atDef mempty) index . F.toList $ lst
+
 ------------------------------------------------------------------------------
 -- Boolean -------------------------------------------------------------------
 ------------------------------------------------------------------------------
@@ -929,11 +936,15 @@ fromBoolC def f value = if f value then value else def
 catBools :: [Bool] -> [Bool]
 catBools = filter id
 
+-- catBoolsC == filter
+
 -- | Ternary operator. Use like this:
 --
 -- > (i > 0) ? i $ 1
 --
 -- /Note/: this is non-idiomatic haskell. Use at your own risk.
+--
+-- /Note/: this may require additional parenthesis, so it may not be worth it.
 infixr 1 ?
 (?) :: Bool -> a -> a -> a
 True ? x = const x
@@ -977,16 +988,16 @@ ifCToMaybe = flip boolCToMaybe
 
 -- | Provided two values, choose amongst them based on a 'Bool' value.
 --
--- > \l r b = if b then Left l else Right r
+-- > \l r b = if b then Right r else Left l
 boolToEither :: a -> b -> Bool -> Either a b
-boolToEither l r b = if b then Left l else Right r
+boolToEither l r b = if b then Right r else Left l
 
 -- | Provided two values, choose amongst them based on a the provided
 -- test on the second value.
 --
 -- > \l r f = if f r then Left l else Right r
 boolCToEither :: a -> b -> (b -> Bool) -> Either a b
-boolCToEither l r f = if f r then Left l else Right r
+boolCToEither l r f = if f r then Right r else Left l
 
 -- | Insert the provided value into a list if the 'Bool' value is 'True',
 -- otherwise return an empty list.
@@ -995,14 +1006,24 @@ boolToList value b = fromBool [] b [value]
 
 -- | Insert the provided value into a list if the provided condition is
 -- 'True', otherwise return an empty list.
+--
+-- Use a list comprehension instead:
+--
+-- > [value | f value]
 boolCToList :: a -> (a -> Bool) -> [a]
-boolCToList value f = if f value then [value] else []
+boolCToList value f = [value | f value]
 
 
 -- | Keep the provided value if the 'Bool' value is 'True', 'mempty'
 -- otherwise.
 boolToMonoid :: (Monoid a) => a -> Bool -> a
 boolToMonoid value b = if b then value else mempty
+
+-- | Keep the provided value if the 'Bool' value is 'True', 'mempty'
+-- otherwise.
+boolCToMonoid :: (Monoid a) => a -> (a -> Bool) -> a
+boolCToMonoid value f = if f value then value else mempty
+
 
 -- | Emulates @and@,@&&@ and @or@,@||@ from scripting languages like python,
 -- in the sense you can mix booleans with a value to get the value when
