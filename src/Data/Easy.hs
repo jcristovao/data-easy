@@ -99,6 +99,7 @@ module Data.Easy
   , mapF
   , nubSort
   , nubSort'
+  , atLeast
 
   -- ** Tuple Pairs
   -- | Monoid class restriction will be used in tuple elements whenever
@@ -433,6 +434,15 @@ nubSort' :: (Eq a, Ord a, Monoid a) => [a] -> [a]
 nubSort' lst = case nubSort lst of
   []     -> []
   (x:xs) -> if isEmpty x then xs else x:xs
+
+-- | Lazy length: determine if a list has a given size without computing
+-- all of its elements.
+--
+-- See <http://www.haskell.org/haskellwiki/Haskell_programming_tips>
+atLeast :: Int -> [a] -> Bool
+atLeast 0 _      = True
+atLeast _ []     = False
+atLeast n (_:ys) = atLeast (n-1) ys
 
 ------------------------------------------------------------------------------
 -- Tuple Pair ----------------------------------------------------------------

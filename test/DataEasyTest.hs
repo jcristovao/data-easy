@@ -241,6 +241,11 @@ specs = do
       it "matches an equivalent implementation" . property $
         \(lst :: [String]) -> nubSort' lst == (nonEmpty . L.nub . L.sort) lst
 
+    describe "atLeast" $ do
+      it "matches an equivalent implementation" . property $
+        \((lst,loc)::([String],Positive Int)) ->
+        (length lst >= getPositive loc) == atLeast (getPositive loc) lst
+
 ------------------------------------------------------------------------------
 -- Tuple Pair ----------------------------------------------------------------
 -- Monoid class restriction will be used when applicable ---------------------
