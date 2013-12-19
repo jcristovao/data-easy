@@ -1,20 +1,19 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
--- | "easy-data" aims to make @'Either'@, @List@, @Tuple@, @'Monoid'@ and
+-- | @easy-data@ aims to make @'Either'@, @'List'@, @'Tuple'@, @'Monoid'@ and
 -- @'Bool'@ counterparts to the functions originally defined in
 -- "Data.Maybe", whenever applicable.
 --
 -- Most functions of "Data.Maybe" are re-exported, so you may import just this
 -- module instead. The only exception(s) are partial functions such as
--- fromJust. Here, the safer alternatives from the "safe" package are
--- prefered instead.
---
--- Related functions always follow the unwritten convention of providing
--- the default value first, except where dully noted.
+-- fromJust. Here, the safer alternatives from the "Safe" package are
+-- prefered (and imported) instead. All functions that take a default value
+-- as a replacement for an invalid value usually accept it as their first
+-- parameter, inline with the convention followed by the "Safe" package.
 --
 -- This module also adds some extra useful functions, that can be found
--- in otherwise disperse packages or pages. A relevant link will be included
--- whenever appropriate.
---
+-- in otherwise disperse packages, pages, mailing lists, etc.
+-- A relevant link will be included whenever appropriate, or just a simple
+-- note regarding where to find the other implementations.
 -- The main goal is to have a consistent set of sensible convertions
 -- between types, providing either default values or custom error messages
 -- when faced with partial functions (in a mathematical sense).
@@ -23,26 +22,36 @@
 -- implementations. Its goal is instead to provide a regular and consistent
 -- set of functions, easy do memorize and use, for the Haskell beginner.
 --
--- Most functions are one-liners, and you should read their actual code
--- and study a possible better implementations, or find that it has probably
--- already been done, in one of the libraries linked below:
+-- Most functions are one-liners, and you should read their actual code,
+-- to either use it as a more idiomatic haskell code, or to develop a
+-- better version yourself. Most of these functions are hand-picked from
+-- one of the following libraries, that also feature a lot of other goodies,
+-- so you should check them out.
 --
--- "safe"
--- "either"
--- "errors"
--- "basic-prelude"
--- "core-prelude"
--- "missingh"
+-- @safe@      : <http://hackage.haskell.org/package/safe>
 --
--- Please notify me if you think I'm missing some other library.
+-- @either@    : <http://hackage.haskell.org/package/either>
 --
--- Or, perhaps, you should be using the one liner instead of the
--- function defined here, has it is probably more idiomatic Haskell.
--- However, you might find these useful nonetheless!
+-- @errors@    : <http://hackage.haskell.org/package/errors>
+--
+-- @basic-prelude@:<http://hackage.haskell.org/package/basic-prelude>
+--
+-- @missingh@   : <http://hackage.haskell.org/package/MissingH>
+--
+-- @utility-ht@ : <http://hackage.haskell.org/package/utility-ht>
+--
+-- Note that "Safe" and @either@ (the "Data.Either.Combinators" module) are
+-- re-exported by this module. Please notify me if you think I'm missing
+-- some other library.
+--
+-- For monad related functions, check my other related module,
+-- "Control.Monad.Trans.Convert", or the modules that inspired it, @either@ and
+-- @errors@.
 --
 -- Some choices have been made, and I am open to discussion whether they
 -- are adequate or not. Please contribute and help me make this a (even)
 -- more easy and consistent module.
+--
 module Data.Easy
   ( -- * Module exports
     module Data.Maybe
@@ -105,6 +114,12 @@ module Data.Easy
   -- | Monoid class restriction will be used in tuple elements whenever
   -- necessary to create the concept of \'valid\' value.
   --
+  -- Here we adopt the convention of a 'direct' mapping between @'Either'@ and
+  -- a tuple pair, meaning that the second value of the pair is considered the
+  -- \'main\' one, whenever applicable. However, if you prefer the first value
+  -- to be considered instead, you can use the reciprocal \"function'\",
+  -- like for example 'pairToMaybe''.
+  --
   -- /Note/: if you need real heterogeneous lists, see the "HList" package.
   -- <http://hackage.haskell.org/package/HList>
    , pair
@@ -139,13 +154,19 @@ module Data.Easy
   -- | Monoid class restriction will be used in tuple elements whenever
   -- necessary to create the concept of \'valid\' value.
   --
+  -- Since it does not make sense to map a triple to an Either, here we follow
+  -- a different convention than from pairs, meaning that the first value
+  -- is always considered the \'valid\' value, if the function needs to
+  -- choose (the first \'valid\' value).
+  --
   -- /Note/: if you need real heterogeneous lists, see the "HList" package.
   -- <http://hackage.haskell.org/package/HList>
   --
-  -- /Note/: we use the postfix ' to distinguish from tuple pairs.
-  -- This clearly doesn't scale to bigger tuples.
+  -- /Note/: we use the postfix ' to distinguish from tuple pairs, for
+  -- example in the @'snd''@ function. This clearly doesn't scale to bigger tuples.
   -- If you need those, you probably should be using a better
   -- library than this, no? See <http://hackage.haskell.org/package/lens>.
+  --
   , triple
   , tripleS
   , isTripleNotEmpty
@@ -176,13 +197,16 @@ module Data.Easy
   , tripleToMaybe'
   , tripleToMonoid
   , tripleToMonoid'
+  , curry3
+  , uncurry3
 
   -- ** Monoid
   -- | The monoid version of the functions
   -- deviate slightly from the others, in the sense no value is extracted
   -- from or promoted to a monoid. Instead, the value is just checked against
   -- mempty, and kept|discarded|operated on accordingly.
-  -- See "monoid-subclasses" module on hackage for a perhaps saner approach.
+  -- See <http://hackage.haskell.org/package/monoid-subclasses> module on
+  -- hackage for a perhaps saner approach.
   , monoid
   , isNotEmpty
   , notEmpty
@@ -190,6 +214,7 @@ module Data.Easy
   , fromNotEmptyNote
   , fromMonoid
   , (?+)
+  , (<!>)
   , listToMonoid
   , monoidToList
   , catMonoids
@@ -227,9 +252,19 @@ module Data.Easy
   , boolToMonoid
   , boolCToMonoid
   , (?&&)
-  , (?$&&)
+  , (?&&\)
   , allCond
+  , allCond'
   , anyCond
+  , anyCond'
+  , (&&\)
+  , (||\)
+
+  -- ** Functor
+  , for
+  , with
+  , (./)
+  , (§)
   ) where
 
 import Data.Maybe
@@ -359,23 +394,26 @@ list :: b -> ([a] -> b) -> [a] -> b
 list def f lst = if null lst then def else f lst
 -- could be list = monoid, but would have to add Eq restriction
 
--- | Alias for @'not''.''null'@
+-- | Alias for @'not'@.@'null'@
+{-# INLINE isFilled #-}
 isFilled :: [a] -> Bool
 isFilled = not . null
 
--- | Alias for 'not'.'null'. Yeah, it saves 3 characters.
+-- | Alias for 'not' . 'null' . Yeah, it saves 3 characters.
 --
 -- > notNull = not . null
+{-# INLINE notNull #-}
 notNull :: [a] -> Bool
 notNull = not . null
 
 -- | Alias for null
+{-# INLINE isNull #-}
 isNull :: [a] -> Bool
 isNull = null
 
 -- | Similar to @'headNote'@ from "Safe" package
--- However, the text is added to the provided string error, for greater
--- transparency.
+-- However, no text is added to the provided string error,
+-- for more deterministic error messages transparency.
 fromHeadNote :: String -> [a] -> a
 fromHeadNote err []  = error err
 fromHeadNote _ (x:_) = x
@@ -400,6 +438,7 @@ mapList = concatMap
 -- or
 --
 -- > singleton = (:[])
+{-# INLINE singleton #-}
 singleton :: a -> [a]
 singleton = return
 
@@ -793,6 +832,14 @@ tripleToMonoid' (a,b,c)
   = fromMonoid (fromMonoid (fromMonoid mempty a) b) c
 
 
+curry3 :: ((a, b, c) -> d) -> a -> b -> c -> d
+curry3 f a b c = f (a,b,c)
+{-# INLINE curry3 #-}
+
+uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
+uncurry3 f ~(a,b,c) = f a b c
+{-# INLINE uncurry3 #-}
+
 ------------------------------------------------------------------------------
 -- Monoid --------------------------------------------------------------------
 ------------------------------------------------------------------------------
@@ -803,14 +850,17 @@ monoid :: (Monoid a, Eq a) => b -> (a -> b) -> a -> b
 monoid def f mon = if isEmpty mon then def else f mon
 
 -- | Check that a monoid is not mempty
+{-# INLINE isNotEmpty #-}
 isNotEmpty :: (Monoid a, Eq a) => a -> Bool
 isNotEmpty = (/=) mempty
 
 -- | Alias for @'isNotEmpty'@.
+{-# INLINE notEmpty #-}
 notEmpty :: (Monoid a, Eq a) => a -> Bool
 notEmpty = isNotEmpty
 
 -- | Check it is mempty
+{-# INLINE isEmpty #-}
 isEmpty :: (Monoid a, Eq a) => a -> Bool
 isEmpty = (==) mempty
 
@@ -830,6 +880,8 @@ fromNotEmptyNote err mon = if isEmpty mon then error err else mon
 -- /Note/: This differs from @fromMaybe@ in the sense it is not possible
 -- to extract values from monoid
 --
+-- /Note/: similar to @flip <|>@ for the appropriate types.
+--
 fromMonoid :: (Eq a, Monoid a) => a -> a -> a
 fromMonoid def mon = if isEmpty mon then def else mon
 
@@ -842,6 +894,16 @@ fromMonoid def mon = if isEmpty mon then def else mon
 infixr 1 ?+
 (?+) :: (Eq a, Monoid a) => a -> a -> a
 mon ?+ def = fromMonoid def mon
+
+-- | Monoid choice operator.
+-- See (obligatory reading, even if you don't understand it at first):
+-- <http://stackoverflow.com/questions/13080606/confused-by-the-meaning-of-the-alternative-type-class-and-its-relationship-to>
+--
+-- This operator implements 'Alternative' like choice operator to 'Monoid's.
+--
+infixl 3 <!>
+(<!>) :: (Eq a, Monoid a) => a -> a -> a
+mon0 <!> mon1 = if isEmpty mon0 then mon1 else mon0
 
 
 -- | listToMonoid extracts the first element from a monoid list
@@ -870,12 +932,12 @@ monoidToList = monoid [] singleton
 catMonoids :: (Eq a, Monoid a) => [a] -> [a]
 catMonoids = filter isNotEmpty
 
--- | Alias for catMonoid
+-- | Alias for @'catMonoids'@.
 nonEmpty :: (Eq a, Monoid a) => [a] -> [a]
 nonEmpty = catMonoids
 
 -- | Apply a function that returns a monoid to all elements of a list
--- and return a list with only those who are not mempty.
+-- and return a new list with only not mempty results.
 --
 -- /Note/: This differs from @mapMaybe@ in the sense it is not possible
 -- to extract the value from a monoid.
@@ -1067,14 +1129,18 @@ infixl 1 ?&&
 -- is not the one normally used in languages like bash, where the test comes
 -- first.
 --
+-- /Note/: an easy mnemonic to remember is that operators ending in \\ (lambda)
+-- imply that their parameters are functions instead of values (in this particular
+-- case, boolean tests)
+--
 -- /Usage/:
 --
--- > value ?$&& condition1 ?$&& condition2 ?$&& ...
+-- > value ?&&\ condition1 ?&&\ condition2 ?&&\ ...
 --
 -- /Note/: this is non-idiomatic haskell. Use at your own risk.
-infixl 1 ?$&&
-(?$&&) :: (Monoid a) => a -> (a -> Bool) -> a
-(?$&&) value f = if f value then value else mempty
+infixl 1 ?&&\
+(?&&\) :: (Monoid a) => a -> (a -> Bool) -> a
+(?&&\) value f = if f value then value else mempty
 
 -- ?||
 -- Just use: ?&& value (bool1 || bool2 || ... )
@@ -1093,14 +1159,76 @@ allCond :: a -> [a -> Bool] -> Bool
 allCond _ [] = False
 allCond value lst = and . mapF value $ lst
 
+-- | Flipped allCond
+--
+-- > flip allCond
+allCond' :: [a -> Bool] -> a -> Bool
+allCond' = flip allCond
+
 -- | Apply a list of boolean checks/tests to a variable, and return (True)
 -- if /any/ of them passed.
 --
 -- /Note/: See 'Any' in "Data.Monoid" and 'any' in "Prelude" for reference.
 --
 -- /See/: <http://www.haskell.org/pipermail/haskell-cafe/2007-February/022694.html>
+{-# INLINE anyCond #-}
 anyCond :: a -> [a -> Bool] -> Bool
 anyCond _ [] = False
 anyCond value lst = or . mapF value $ lst
+
+-- | Flipped anyCond
+--
+-- > flip anyCond
+anyCond' :: [a -> Bool] -> a -> Bool
+anyCond' = flip anyCond
+
+-- | Group conditions with @'&&'@. Useful for filter.
+--
+-- /Note/: an easy mnemonic to remember is that operators ending in \\ (lambda)
+-- imply that their parameters are functions instead of values (in this particular
+-- case, boolean tests)
+--
+-- > (f &&\ g) x = f x && g x
+(&&\) :: (a -> Bool) -> (a -> Bool) -> (a -> Bool)
+(f &&\ g) x = f x && g x
+infixr 3 &&\
+
+-- | Group conditions with @'||'@ Useful for filter.
+--
+-- /Note/: an easy mnemonic to remember is that operators ending in \\ (lambda)
+-- imply that their parameters are functions instead of values (in this particular
+-- case, boolean tests)
+--
+-- > (f ||\ g) x = f x || g x
+(||\) :: (a -> Bool) -> (a -> Bool) -> (a -> Bool)
+(f ||\ g) x = f x || g x
+infixr 2 ||\
+
+------------------------------------------------------------------------------
+-- Data.Functor --------------------------------------------------------------
+------------------------------------------------------------------------------
+
+-- | fmap with its arguments reversed.
+--
+-- <http://www.reddit.com/r/haskell/comments/qy990/suggestion_for_flip_map/>
+--
+-- > for  = flip fmap
+-- > with = flip fmap
+for,with :: (Functor f) => f a -> (a -> b) -> f b
+for = flip fmap
+with= flip fmap
+
+{-# INLINE (./) #-}
+-- | Function composition with Left fixity. Not sure if it is useful.
+(./) :: (b -> c) -> (a -> b) -> a -> c   -- Defined in `GHC.Base'
+(f ./ g) x = f (g x)
+infixl 9 ./
+
+-- | Just like (@'$'@), but with higher precedence than (@'<>'@), but still lower
+-- than (@'.'@). Similar to "Diagrams.Util" @'#'@, but without flipped arguments.
+{-# INLINE (§) #-}
+(§) :: (a -> b) -> a -> b
+f § x =  f x
+infixr 8 §
 
 

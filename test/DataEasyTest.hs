@@ -12,7 +12,7 @@ import Test.QuickCheck
 import Data.Text (Text)
 import qualified Data.Text as T
 
-{-import Data.Monoid-}
+import Data.Monoid
 {-import Data.EitherR-}
 import Data.Char
 import Data.Easy
@@ -511,6 +511,17 @@ specs = do
         ((""::String) ?+ "!?") `shouldBe` "!?"
         (([]::[Int])  ?+ [1] ) `shouldBe` [1]
 
+    describe "<!>" $ do
+      it "returns the first non empty monoid value" $ do
+        let x = "abc" :: Text
+            y = ""    :: Text
+            z = "def" :: Text
+        x <!> y <!> z `shouldBe` x
+        y <!> z       `shouldBe` z
+        z <!> y       `shouldBe` z
+        x <!> z <!> y `shouldBe` x
+        y <!> y       `shouldBe` mempty
+
     describe "listToMonoid" $ do
       it "extracts the first element from a monoid list" $ do
         listToMonoid (["abc","def"]::[String]) `shouldBe` "abc"
@@ -723,10 +734,10 @@ specs = do
         (("aaa"::String) ?&& True ?&& True  ?&& True) `shouldBe` "aaa"
         (("aaa"::String) ?&& True ?&& False ?&& True) `shouldBe` ""
 
-    describe "?$&&" $ do
+    describe "?&&\\" $ do
       it "handles `pseudo-composition` of tests of provided value" $ do
-        (("123"::String) ?$&& not . null ?$&& (\s -> length s > 2)) `shouldBe` "123"
-        (("12" ::String) ?$&& not . null ?$&& (\s -> length s > 2)) `shouldBe` ""
+        (("123"::String) ?&&\ not . null ?&&\ (\s -> length s > 2)) `shouldBe` "123"
+        (("12" ::String) ?&&\ not . null ?&&\ (\s -> length s > 2)) `shouldBe` ""
 
     describe "allCond" $ do
       it "returns True if all the tests on a variable return true" $ do
@@ -741,6 +752,14 @@ specs = do
       it "returns False if none of the tests on the variable succeeds" $ do
         anyCond '1' [isSpace,isLower,isAlpha] `shouldBe` False
 
+------------------------------------------------------------------------------
+-- Functor -------------------------------------------------------------------
+------------------------------------------------------------------------------
+
+  describe "Functor" $ do
+    describe "for" $ do
+      it "behaves like flipped for" . property $
+        \(iLst::[Int]) -> fmap (+1) iLst == for iLst (+1)
 
 
 
