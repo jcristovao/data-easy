@@ -1,4 +1,5 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE CPP #-}
 -- | @easy-data@ aims to make @'Either'@, @'List'@, @'Tuple'@, @'Monoid'@ and
 -- @'Bool'@ counterparts to the functions originally defined in
 -- "Data.Maybe", whenever applicable.
@@ -269,7 +270,11 @@ module Data.Easy
 
 import Data.Maybe
 import Data.Either
+#if __GLASGOW_HASKELL__ >= 707
+import Data.Either.Combinators hiding (isLeft,isRight)
+#else
 import Data.Either.Combinators
+#endif
 import Data.Tuple
 import Data.Ord
 import Data.Function
@@ -1138,9 +1143,9 @@ infixl 1 ?&&
 -- > value ?&&\ condition1 ?&&\ condition2 ?&&\ ...
 --
 -- /Note/: this is non-idiomatic haskell. Use at your own risk.
-infixl 1 ?&&\
 (?&&\) :: (Monoid a) => a -> (a -> Bool) -> a
 (?&&\) value f = if f value then value else mempty
+infixl 1 ?&&\{-This comment teaches CPP correct behaviour -}
 
 -- ?||
 -- Just use: ?&& value (bool1 || bool2 || ... )
@@ -1191,7 +1196,7 @@ anyCond' = flip anyCond
 -- > (f &&\ g) x = f x && g x
 (&&\) :: (a -> Bool) -> (a -> Bool) -> (a -> Bool)
 (f &&\ g) x = f x && g x
-infixr 3 &&\
+infixr 3 &&\{- This comment tells CPP to behave -}
 
 -- | Group conditions with @'||'@ Useful for filter.
 --
@@ -1202,7 +1207,7 @@ infixr 3 &&\
 -- > (f ||\ g) x = f x || g x
 (||\) :: (a -> Bool) -> (a -> Bool) -> (a -> Bool)
 (f ||\ g) x = f x || g x
-infixr 2 ||\
+infixr 2 ||\{- This comment tells CPP to behave -}
 
 ------------------------------------------------------------------------------
 -- Data.Functor --------------------------------------------------------------
