@@ -106,7 +106,7 @@ module Data.Easy
   , catLists
   , mapList
   , singleton
-  , mapF
+  , mapV
   , nubSort
   , nubSort'
   , atLeast
@@ -452,15 +452,15 @@ singleton = return
 -- /See/: <http://www.haskell.org/pipermail/haskell-cafe/2007-February/022694.html>
 --
 -- @
--- /Alternative 1/: mapF value = map ($ value)
+-- /Alternative 1/: mapV value = map ($ value)
 -- @
 --
 -- @
--- /Alternative 2/: mapF value lst = sequence lst value
+-- /Alternative 2/: mapV value lst = sequence lst value
 -- @
 --
-mapF :: a -> [a -> b] -> [b]
-mapF value = map ($ value)
+mapV :: a -> [a -> b] -> [b]
+mapV value = map ($ value)
 
 -- | Sort and nub (remove duplicates) from a list.
 -- Specially for large lists, this is much more efficient than @nub . sort@.
@@ -989,7 +989,7 @@ lastF = lastDef mempty . F.toList
 atF :: (F.Foldable t, Monoid a) => t a -> Int -> a
 atF lst index = flip (atDef mempty) index . F.toList $ lst
 
--- | Infix version of @'afF'@.
+-- | Infix version of @'atF'@.
 infixl 9 @@
 (@@) :: (F.Foldable t, Monoid a) => t a -> Int -> a
 lst @@ index = flip (atDef mempty) index . F.toList $ lst
@@ -1162,7 +1162,7 @@ infixl 1 ?&&\{-This comment teaches CPP correct behaviour -}
 -- /See/: <http://www.haskell.org/pipermail/haskell-cafe/2007-February/022694.html>
 allCond :: a -> [a -> Bool] -> Bool
 allCond _ [] = False
-allCond value lst = and . mapF value $ lst
+allCond value lst = and . mapV value $ lst
 
 -- | Flipped allCond
 --
@@ -1179,7 +1179,7 @@ allCond' = flip allCond
 {-# INLINE anyCond #-}
 anyCond :: a -> [a -> Bool] -> Bool
 anyCond _ [] = False
-anyCond value lst = or . mapF value $ lst
+anyCond value lst = or . mapV value $ lst
 
 -- | Flipped anyCond
 --
@@ -1224,7 +1224,10 @@ for = flip fmap
 with= flip fmap
 
 {-# INLINE (./) #-}
--- | Function composition with Left fixity. Not sure if it is useful.
+-- | Function composition with Left fixity.
+-- /Note/: Do not use. See Control.Category for proper @'>>>'@ operator.
+--
+-- > Alias for @'>>>'@.
 (./) :: (b -> c) -> (a -> b) -> a -> c   -- Defined in `GHC.Base'
 (f ./ g) x = f (g x)
 infixl 9 ./
