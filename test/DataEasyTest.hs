@@ -226,12 +226,12 @@ specs = do
       it "matches an equivalent implementation" . property $
         \(x::Int) -> singleton x == (:[]) x
 
-    describe "mapF" $ do
+    describe "mapV" $ do
       let functionList = [isSpace,isSeparator,isDigit]
       it "applies a list of functions to a value, and returns a list of values" $ do
-        mapF ' ' functionList `shouldBe` [True,True,False]
+        mapV ' ' functionList `shouldBe` [True,True,False]
       it "matches an equivalent implementation" . property $
-        \ch -> mapF ch functionList == sequence functionList ch
+        \ch -> mapV ch functionList == sequence functionList ch
 
     describe "nubSort" $ do
       it "matches an equivalent implementation" . property $
@@ -751,6 +751,12 @@ specs = do
         anyCond '1' [isSpace,isDigit,isAlpha] `shouldBe` True
       it "returns False if none of the tests on the variable succeeds" $ do
         anyCond '1' [isSpace,isLower,isAlpha] `shouldBe` False
+
+    describe "?." $ do
+      it "Composes the given function if the condition is true" $ do
+        (True ?. (+1) .$ (+1) $ (0::Int)) `shouldBe` 2
+      it "Composes with id if the condition is false" $ do
+        (False ?. (+1) .$ (+1) $ (0::Int)) `shouldBe` 1
 
 ------------------------------------------------------------------------------
 -- Functor -------------------------------------------------------------------
