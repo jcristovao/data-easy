@@ -1,5 +1,5 @@
-name:                easy-data
-version:             0.3.3.0
+name:                data-easy
+version:             0.4
 synopsis:            Consistent set of utility functions for Maybe, Either, List, Monoids.
 description:         Easy to use set of utility functions, implementing a Data.Maybe like
                      interface for other common types, like Either, List, Bool, Tuple, 
@@ -54,9 +54,9 @@ test-suite test
                 , text          >= 0.11.3
                 , errors        >= 1.4.3
                 , directory     >= 1.2.0.1
-                , QuickCheck    >= 2.6
+                , QuickCheck    >= 2.7 && < 2.8
                 , HUnit         >= 1.2.5.2
-                , hspec         >= 1.7.2
+                , hspec         >= 1.7.2 
                 , unix          >= 2.6
                 , haskell-src-exts >= 1.14
                 , hlint

@@ -199,7 +199,9 @@ specs = do
     describe "isFilled | notNull | isNull" $ do
       it "matches equivalent implementations" $ do
         property $ \(lst :: String) -> isFilled lst == (not . null) lst
+      it "matches equivalent implementations" $ do
         property $ \(lst :: String) -> isFilled lst == notNull lst
+      it "matches equivalent implementations" $ do
         property $ \(lst :: String) -> isFilled lst == not (isNull lst)
 
     describe "fromHeadNote" $ do
@@ -460,7 +462,9 @@ specs = do
     describe "isNotEmpty" $ do
       it "it checks a monoit is not empty" $ do
         property $ \(s::String) -> (not . null) s ==> isNotEmpty s
+      it "it checks a monoit is not empty" $ do
         property $ \(s::Text  ) -> (not . T.null) s ==> isNotEmpty s
+      it "it checks a monoit is not empty" $ do
         property $ \(s::[Int] ) -> (not . null) s ==> isNotEmpty s
       it "it returns False on an empty monoid" $ do
         (""::String) `shouldSatisfy` null
@@ -474,7 +478,9 @@ specs = do
     describe "isEmpty" $ do
       it "matches an equivalent implementation" $ do
         property $ \(s::Text)   -> isEmpty s == T.null s
+      it "matches an equivalent implementation" $ do
         property $ \(s::String) -> isEmpty s == null s
+      it "matches an equivalent implementation" $ do
         property $ \(s::[Int])  -> isEmpty s == null s
       it "is the logical negation of isNotEmpty" $ do
         property $ \(s::Text)   -> isEmpty s == (not . isNotEmpty) s
@@ -482,7 +488,9 @@ specs = do
     describe "fromNotEmptyNote" $ do
       it "returns the value from an not empty monoit" $ do
         property $ \(s::Text)   -> isNotEmpty s ==> fromNotEmptyNote "!?" s == s
+      it "returns the value from an not empty monoit" $ do
         property $ \(s::String) -> isNotEmpty s ==> fromNotEmptyNote "!?" s == s
+      it "returns the value from an not empty monoit" $ do
         property $ \(s::[Int])  -> isNotEmpty s ==> fromNotEmptyNote "!?" s == s
 
       it "raises the specified error on an empty monoid" $ do
@@ -494,7 +502,9 @@ specs = do
     describe "fromMonoid" $ do
       it "returns the value from an not empty monoid" $ do
         property $ \(s::Text)   -> isNotEmpty s ==> fromMonoid "!?" s == s
+      it "returns the value from an not empty monoid" $ do
         property $ \(s::String) -> isNotEmpty s ==> fromMonoid "!?" s == s
+      it "returns the value from an not empty monoid" $ do
         property $ \(s::[Int])  -> isNotEmpty s ==> fromMonoid [1] s == s
       it "returns the provided default value on an empty monoid" $ do
         fromMonoid "!?" (""::Text  ) `shouldBe` "!?"
@@ -504,7 +514,9 @@ specs = do
     describe "?+" $ do
       it "returns the value from an not empty monoid" $ do
         property $ \(s::Text)   -> isNotEmpty s ==> (s ?+ "!?") == s
+      it "returns the value from an not empty monoid" $ do
         property $ \(s::String) -> isNotEmpty s ==> (s ?+ "!?") == s
+      it "returns the value from an not empty monoid" $ do
         property $ \(s::[Int])  -> isNotEmpty s ==> (s ?+ [1] ) == s
       it "returns the provided default value on an empty monoid" $ do
         ((""::Text  ) ?+ "!?") `shouldBe` "!?"
@@ -752,20 +764,20 @@ specs = do
       it "returns False if none of the tests on the variable succeeds" $ do
         anyCond '1' [isSpace,isLower,isAlpha] `shouldBe` False
 
-    describe "?." $ do
-      it "Composes the given function if the condition is true" $ do
-        (True ?. (+1) .$ (+1) $ (0::Int)) `shouldBe` 2
-      it "Composes with id if the condition is false" $ do
-        (False ?. (+1) .$ (+1) $ (0::Int)) `shouldBe` 1
+    {-describe "?." $ do-}
+      {-it "Composes the given function if the condition is true" $ do-}
+        {-(True ?. (+1) .$ (+1) $ (0::Int)) `shouldBe` 2-}
+      {-it "Composes with id if the condition is false" $ do-}
+        {-(False ?. (+1) .$ (+1) $ (0::Int)) `shouldBe` 1-}
 
 ------------------------------------------------------------------------------
 -- Functor -------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
-  describe "Functor" $ do
-    describe "for" $ do
-      it "behaves like flipped for" . property $
-        \(iLst::[Int]) -> fmap (+1) iLst == for iLst (+1)
+  {-describe "Functor" $ do-}
+    {-describe "for" $ do-}
+      {-it "behaves like flipped for" . property $-}
+        {-\(iLst::[Int]) -> fmap (+1) iLst == for iLst (+1)-}
 
 
 
