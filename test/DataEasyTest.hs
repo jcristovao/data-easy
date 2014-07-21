@@ -13,8 +13,9 @@ import Data.Text (Text)
 import qualified Data.Text as T
 
 import Data.Monoid
-{-import Data.EitherR-}
 import Data.Char
+import Data.Maybe
+import Data.Either
 import Data.Easy
 import qualified Data.List as L
 
