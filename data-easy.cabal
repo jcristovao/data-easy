@@ -51,7 +51,7 @@ test-suite test
                 , safe          >= 0.3.3
                 , containers    >= 0.5.0.0
                 , text          >= 0.11.3
-                , errors        >= 1.4.3
+                , errors        >= 1.4.3 && < 2.0
                 , directory     >= 1.2.0.1
                 , QuickCheck    >= 2.7 && < 2.8
                 , HUnit         >= 1.2.5.2
