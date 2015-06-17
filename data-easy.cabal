@@ -1,5 +1,5 @@
 name:                data-easy
-version:             0.5
+version:             0.6
 synopsis:            Consistent set of utility functions for Maybe, Either, List, Monoids.
 description:         Easy to use set of utility functions, implementing a Data.Maybe like
                      interface for other common types, like Either, List, Bool, Tuple, 
@@ -45,13 +45,12 @@ test-suite test
   type:           exitcode-stdio-1.0
   main-is:        main.hs
   hs-source-dirs: test, src
-  build-depends:  base          >= 4.6 && < 4.8
-                , transformers  >= 0.3
-                , either        >= 4.1.1
+  build-depends:  base          >= 4.6 && < 4.9
+                , transformers  >= 0.4 && < 0.5
                 , safe          >= 0.3.3
                 , containers    >= 0.5.0.0
                 , text          >= 0.11.3
-                , errors        >= 1.4.3
+                , errors        >= 2.0
                 , directory     >= 1.2.0.1
                 , QuickCheck    >= 2.7 && < 2.8
                 , HUnit         >= 1.2.5.2
