@@ -6,7 +6,7 @@ description:         Easy to use set of utility functions, implementing a Data.M
                      or even member of the Monoid type class.
                      Also features a set of conversion functions among them, 
                      using sensible defaults.
-homepage:            https://github.com/jcristovao/easy-data
+homepage:            https://github.com/jcristovao/data-easy
 license:             BSD3
 license-file:        LICENSE
 author:              João Cristóvão
