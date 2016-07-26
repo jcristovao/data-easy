@@ -1398,12 +1398,6 @@ allCond :: a -> [a -> Bool] -> Bool
 allCond _ [] = False
 allCond value lst = and . mapV value $ lst
 
--- | Flipped allCond
---
--- > flip allCond
-allCond' :: [a -> Bool] -> a -> Bool
-allCond' = flip allCond
-
 -- | Apply a list of boolean checks/tests to a variable, and return (True)
 -- if /any/ of them passed.
 --
@@ -1414,11 +1408,3 @@ allCond' = flip allCond
 anyCond :: a -> [a -> Bool] -> Bool
 anyCond _ [] = False
 anyCond value lst = or . mapV value $ lst
-
--- | Flipped anyCond
---
--- > flip anyCond
-anyCond' :: [a -> Bool] -> a -> Bool
-anyCond' = flip anyCond
-
-
