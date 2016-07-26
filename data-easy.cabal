@@ -1,5 +1,5 @@
 name:                data-easy
-version:             0.6.1
+version:             0.7.0
 synopsis:            Consistent set of utility functions for Maybe, Either, List and Monoids.
 description:         Easy to use set of utility functions, implementing a Data.Maybe like
                      interface for other common types, like Either, List, Bool, Tuple, 
@@ -35,7 +35,7 @@ library
   -- other-modules:       
   
   -- Other library packages from which modules are imported.
-  build-depends   : base          >= 4.6 && < 4.9
+  build-depends   : base          >= 4.6 && < 4.11
                   , safe          >= 0.3.3
                   , containers    >= 0.5.0.0
   

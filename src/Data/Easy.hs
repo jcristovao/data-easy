@@ -257,9 +257,7 @@ module Data.Easy
   , (?&&)
   , (?&&\)
   , allCond
-  , allCond'
   , anyCond
-  , anyCond'
 
   ) where
 
@@ -270,11 +268,6 @@ import Data.Either
 -- #else
 -- import Data.Either.Combinators
 -- #endif
-import Control.Applicative
-{-import Data.Tuple-}
-{-import Data.Ord-}
-{-import Data.Function-}
-import Data.Monoid
 import Safe
 import qualified Data.List as L
 import qualified Data.Set as Set
@@ -703,12 +696,12 @@ mapV value = map ($ value)
 --
 -- > nubSort = Set.toAscList . Set.fromList
 --
-nubSort :: (Eq a, Ord a) => [a] -> [a]
+nubSort :: (Ord a) => [a] -> [a]
 nubSort = Set.toAscList . Set.fromList
 
 -- | Sort, nub (remove duplicates) and remove initial empty value, if it
 -- exists. See 'nubSort'.
-nubSort' :: (Eq a, Ord a, Monoid a) => [a] -> [a]
+nubSort' :: (Ord a, Monoid a) => [a] -> [a]
 nubSort' lst = case nubSort lst of
   []     -> []
   (x:xs) -> if isEmpty x then xs else x:xs
@@ -1152,7 +1145,7 @@ mon0 <!> mon1 = if isEmpty mon0 then mon1 else mon0
 -- to promote values into a monoid
 --
 -- > listToMonoid = headDef mempty
-listToMonoid :: (Eq a, Monoid a) => [a] -> a
+listToMonoid :: (Monoid a) => [a] -> a
 listToMonoid = headDef mempty
 
 -- | monoidToList convert an empty monoid into an empty list,
